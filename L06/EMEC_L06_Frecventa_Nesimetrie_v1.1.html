@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMEC · L06 · Frecvența și nesimetria tensiunii</title>
+<style>
+  :root {
+    --navy: #142d4e;
+    --teal: #007f86;
+    --paper: #f3f6f8;
+    --panel: #ffffff;
+    --ink: #172231;
+    --muted: #556274;
+    --line: #c9d3dd;
+    --lcd: #c4d3bd;
+    --lcd-ink: #1c2a19;
+    --l1: #c62828;
+    --l2: #b07a00;
+    --l3: #1f5fbf;
+    --ln: #7b3fa0;
+    --warn: #a23b00;
+    --ok: #1d6b3a;
+    --focus: #ffbf47;
+    --font-ui: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-head: "Bahnschrift", "DIN Alternate", "Segoe UI Semibold", "Arial Narrow", sans-serif;
+    --font-lcd: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; }
+  html.board { font-size: 20px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header.top { background: var(--navy); color: #fff; padding: 1rem 1.5rem 0.9rem; }
+  header.top .course { font-size: 0.9rem; opacity: 0.85; margin: 0; }
+  header.top h1 { font-family: var(--font-head); font-weight: 600; font-size: 1.9rem; margin: 0.1rem 0 0; letter-spacing: 0.01em; }
+  header.top .sub { margin: 0.2rem 0 0; font-size: 0.95rem; opacity: 0.9; }
+  .variant { background: #e4eef0; border-bottom: 1px solid var(--line); padding: 0.7rem 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; }
+  .variant label { font-weight: 600; }
+  .variant input[type=number] { width: 4.5rem; font-size: 1rem; padding: 0.3rem; }
+  .variant .code { font-family: var(--font-lcd); background: #fff; padding: 0.2rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; }
+  .variant .data { flex-basis: 100%; font-size: 0.95rem; color: var(--muted); }
+  button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--teal); background: #fff; color: var(--teal); cursor: pointer; min-height: 2.4rem; }
+  button.primary { background: var(--teal); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  nav.tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--paper); border-bottom: 2px solid var(--navy); flex-wrap: wrap; }
+  nav.tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--navy); padding: 0.7rem 1.1rem; font-weight: 600; }
+  nav.tabs button[aria-selected=true] { background: var(--navy); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 1.2rem 1.5rem 2rem; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  h2 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.45rem; margin: 0.4rem 0 0.8rem; }
+  h3 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.15rem; margin: 1.2rem 0 0.5rem; }
+  p, li { max-width: 78ch; }
+  .grid2 { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 1.4rem; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { border: 1px solid var(--line); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+  th { background: #e8edf2; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.92rem; }
+  .status { min-height: 1.4rem; font-size: 0.95rem; color: var(--ok); }
+  .status.err { color: var(--warn); }
+
+  /* ---------- virtual analyser ---------- */
+  .device { background: linear-gradient(#e9ecee, #d5dade); border: 2px solid #8b96a1; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 0 #9aa4ae; }
+  .device .terms { display: flex; justify-content: space-between; font-family: var(--font-lcd); font-size: 0.72rem; color: #3e4955; margin-bottom: 0.5rem; }
+  .device .terms span { background: #2b3440; color: #dfe6ec; padding: 0.1rem 0.35rem; border-radius: 3px; }
+  .device .name { font-family: var(--font-head); font-weight: 600; color: #2b3440; margin: 0.2rem 0 0.6rem; font-size: 1rem; }
+  .lcd { background: var(--lcd); color: var(--lcd-ink); border: 3px solid #5f6a62; border-radius: 6px; padding: 0.6rem 0.8rem; font-family: var(--font-lcd); min-height: 7.6rem; position: relative; }
+  .lcd .row1 { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .lcd .big { font-size: 2.6rem; text-align: right; letter-spacing: 0.04em; line-height: 1.2; margin-top: 0.2rem; }
+  .lcd .unit { font-size: 1.2rem; margin-left: 0.3rem; }
+  .lcd .row3 { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.1rem; }
+  .lcd .cur { text-decoration: underline; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .lcd .cur { animation: none; } }
+  .keys { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .keys button { flex: 1; min-height: 3rem; background: #2b3440; color: #fff; border-color: #2b3440; font-weight: 600; }
+  .keys button.both { background: #4a5663; }
+  .keyhelp { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+
+  .exps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+  .exps button[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .expbody { display: none; }
+  .expbody.active { display: block; }
+  canvas { width: 100%; height: 260px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin: 0.6rem 0; }
+  .ctrl label { font-size: 0.95rem; }
+  .ctrl input[type=range] { width: 200px; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin: 0.4rem 0; }
+  .legend i { display: inline-block; width: 1.4rem; height: 0.25rem; vertical-align: middle; margin-right: 0.3rem; }
+  .readout { font-variant-numeric: tabular-nums; }
+  svg text { font-family: var(--font-ui); }
+  .frame { font-family: var(--font-lcd); font-size: 1.15rem; background: #0f1d2c; color: #d8f3f2; padding: 0.6rem 0.8rem; border-radius: 6px; word-break: break-all; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+  input.f { width: 7rem; font: inherit; padding: 0.2rem 0.3rem; }
+  textarea { width: 100%; min-height: 5rem; font: inherit; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem; border-top: 1px solid var(--line); }
+  @media (max-width: 700px) {
+    .grid2 { grid-template-columns: 1fr; }
+    header.top h1 { font-size: 1.45rem; }
+    .lcd .big { font-size: 2rem; }
+  }
+  @media print {
+    .noprint, nav.tabs, header.top, .variant { display: none !important; }
+    section.tab { display: none !important; }
+    #tab-fisa { display: block !important; }
+    body { background: #fff; }
+    .card { border: none; }
+  }
+  select { font: inherit; padding: 0.3rem; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="course">EMEC · Echipamente și metode de evaluare a calității energiei electrice · Master SIIM, anul 2</p>
+  <h1>L06 · Frecvența și nesimetria tensiunii după EN 50160</h1>
+  <p class="sub">Alunecarea fazorilor față de referința de 50 Hz · componentele simetrice · Conf.dr.ing. Florin Ciprian Argatu</p>
+</header>
+
+<div class="variant noprint" aria-label="Varianta individuală">
+  <label for="nIn">Numărul tău N (1–30)</label>
+  <input id="nIn" type="number" min="1" max="30" step="1" value="7">
+  <button class="primary" id="btnApply">Aplică varianta N</button>
+  <button id="btnEx">Exemplul N = 7</button>
+  <span>Cod variantă: <span class="code" id="vCode">–</span></span>
+  <button id="btnBoard" aria-pressed="false">Mărește pentru tablă</button>
+  <div class="data" id="vData"></div>
+  <div class="status" id="stVar" role="status"></div>
+</div>
+
+<nav class="tabs noprint" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="tab-start">1 · Începe aici</button>
+  <button role="tab" aria-selected="false" data-tab="tab-banc">2 · Banc virtual</button>
+  <button role="tab" aria-selected="false" data-tab="tab-fisa">3 · Fișa studentului</button>
+  <button role="tab" aria-selected="false" data-tab="tab-brev">4 · Breviar</button>
+</nav>
+
+<main>
+<section class="tab active" id="tab-start" role="tabpanel">
+  <h2>Ce investighezi</h2>
+  <p>Doi dintre parametrii tensiunii din EN 50160 se văd cel mai bine pe diagrama fazorială: frecvența și nesimetria. Dacă privești fazorii unei rețele dintr-un sistem de referință care se rotește exact cu 50 Hz, la frecvența nominală ei stau pe loc. Când frecvența se abate, toți fazorii alunecă împreună, cu Δf rotații pe secundă. Când amplitudinile sau unghiurile dintre faze nu mai sunt egale, apare componenta de secvență negativă, iar raportul ei față de componenta pozitivă este nesimetria evaluată de standard.</p>
+  <h3>Parcursul lucrării L06</h3>
+  <table>
+    <tr><th>Timp</th><th>Activitate</th></tr>
+    <tr><td>0–15 min</td><td>Experimentul 1 · Fazorii și formele de undă: rotația, sistemul de referință de 50 Hz, legătura dintre fazor și sinusoidă.</td></tr>
+    <tr><td>15–35 min</td><td>Experimentul 2 · Frecvența: alunecarea fazorilor, timpul unei rotații relative, încadrarea în limitele EN 50160.</td></tr>
+    <tr><td>35–60 min</td><td>Experimentul 3 · Nesimetria: componentele simetrice ale variantei tale și factorul de nesimetrie u2 comparat cu limita de 2 %.</td></tr>
+  </table>
+  <h3>Ce predai</h3>
+  <p>Fișa din fila 3, exportată ca PDF, cu N și codul variantei, calculele tale, valorile citite, capturile C1–C3 și concluziile. Numele fișierului: <span style="font-family:var(--font-lcd)">EMEC_L06_Nxx_Nume_Prenume.pdf</span>.</p>
+  <h3>Ipotezele modelului</h3>
+  <ul>
+    <li>Tensiunile sunt sinusoidale; armonicile nu sunt incluse în această parte.</li>
+    <li>Toate cele trei faze au aceeași frecvență, a rețelei. Alunecarea vizibilă este față de referința de 50 Hz, nu între faze.</li>
+    <li>Rotația este redată încetinit; frecvențele introduse nu se modifică. Valorile de nesimetrie sunt calculate pe fazorii unui singur moment, nu pe valori agregate pe 10 minute cum cere standardul.</li>
+    <li>Aplicația pornește de la animația „Sistem trifazat – amplitudine, frecvență și alunecare de fază” a titularului (octombrie 2026).</li>
+  </ul>
+</section>
+
+<section class="tab" id="tab-banc" role="tabpanel">
+  <div class="exps noprint" role="group" aria-label="Experimente">
+    <button data-exp="e1" aria-pressed="true">Experiment 1 · Fazori și forme de undă</button>
+    <button data-exp="e2" aria-pressed="false">Experiment 2 · Frecvența</button>
+    <button data-exp="e3" aria-pressed="false">Experiment 3 · Nesimetria</button>
+  </div>
+  <div class="ctrl noprint">
+    <button class="primary" id="btnPlay">Play</button><button id="btnPause">Pauză</button><button id="btnReset">Reset</button>
+    <label>Încetinire <input type="range" id="slow" min="0.05" max="1" step="0.05" value="0.3"> <span id="slowVal" class="readout"></span></label>
+    <span class="readout" id="clock">t = 0,000 s</span>
+  </div>
+  <div class="grid2" style="grid-template-columns: 1.5fr 1fr">
+    <div class="card"><h3 style="margin-top:0">Formele de undă u(t)</h3><canvas id="cvWave" aria-label="Tensiunile celor trei faze în timp"></canvas>
+      <div class="legend"><span><i style="background:var(--l1)"></i>L1</span><span><i style="background:var(--l2)"></i>L2</span><span><i style="background:var(--l3)"></i>L3</span></div></div>
+    <div class="card"><h3 style="margin-top:0" id="phTitle">Fazorii în referința de 50 Hz</h3><canvas id="cvPh" aria-label="Diagrama fazorială" style="height:300px"></canvas>
+      <div class="legend" id="phLegend"></div></div>
+  </div>
+
+  <div class="card expbody active" id="e1" style="margin-top:1rem">
+    <h3 style="margin-top:0">Experiment 1 · Fazorii și formele de undă</h3>
+    <p>Fazorul unei faze este proiecția rotitoare a sinusoidei: lungimea lui este amplitudinea, unghiul lui este faza în momentul curent. În sistemul de referință de 50 Hz, la frecvență nominală, fazorii stau pe loc. Modifică amplitudinile și unghiurile; frecvența rețelei o modifici la Experimentul 2.</p>
+    <div class="ctrl" id="slidersE1"></div>
+    <div class="ctrl noprint"><button id="btnSym">Sistem simetric (230 V, 0°, −120°, +120°)</button><button id="btnVarE1">Valorile variantei</button></div>
+  </div>
+
+  <div class="card expbody" id="e2" style="margin-top:1rem">
+    <h3 style="margin-top:0">Experiment 2 · Frecvența rețelei și alunecarea fazorilor</h3>
+    <div class="ctrl">
+      <label>Frecvența rețelei <input type="range" id="fSl" min="47" max="52" step="0.01" value="50"> <span class="readout" id="fVal"></span> Hz</label>
+      <button class="noprint" id="fVar">Frecvența variantei</button>
+      <button class="noprint" id="fNom">50,00 Hz</button>
+    </div>
+    <p class="readout" id="e2Read"></p>
+    <div class="ctrl noprint"><button id="note2">Notează cazul în fișă</button><span class="status" id="st2" role="status"></span></div>
+  </div>
+
+  <div class="card expbody" id="e3" style="margin-top:1rem">
+    <h3 style="margin-top:0">Experiment 3 · Componentele simetrice și nesimetria</h3>
+    <p>Cu operatorul a = 1∠120°, componentele simetrice ale tensiunilor de fază sunt: U1 = (U_L1 + a·U_L2 + a²·U_L3) / 3 (secvență pozitivă), U2 = (U_L1 + a²·U_L2 + a·U_L3) / 3 (secvență negativă), U0 = (U_L1 + U_L2 + U_L3) / 3 (secvență zero). EN 50160 limitează u2 = U2 / U1.</p>
+    <div class="ctrl"><label><input type="checkbox" id="showSeq" checked> Arată componentele pe diagrama fazorială</label></div>
+    <table id="seqTab"></table>
+    <p class="readout" id="e3Read"></p>
+    <div class="ctrl noprint"><button id="note3">Notează cazul în fișă</button><span class="status" id="st3" role="status"></span></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-fisa" role="tabpanel">
+  <div class="card">
+    <h2>Fișa studentului · EMEC L06 · Frecvența și nesimetria</h2>
+    <div class="ctrl">
+      <label>Nume și prenume <input id="fName" style="width:16rem"></label>
+      <label>Grupa <input id="fGroup" style="width:6rem"></label>
+      <span>N = <b id="fN">–</b> · cod <b id="fCode">–</b></span>
+    </div>
+    <h3>Date impuse</h3>
+    <table id="fData"></table>
+    <h3>Calculează înainte de verificare</h3>
+    <table>
+      <tr><th>Mărimea</th><th>Relația</th><th class="num">Calculul tău</th><th class="num">Citit în aplicație</th></tr>
+      <tr><td>Abaterea frecvenței (%)</td><td>(f − 50) / 50 · 100</td><td class="num"><input class="f" id="cDf"></td><td class="num" id="mDf"></td></tr>
+      <tr><td>Viteza de alunecare a fazorilor (°/s)</td><td>360 · (f − 50)</td><td class="num"><input class="f" id="cSlip"></td><td class="num" id="mSlip"></td></tr>
+      <tr><td>Timpul unei rotații relative complete (s)</td><td>1 / |f − 50|</td><td class="num"><input class="f" id="cTr"></td><td class="num" id="mTr"></td></tr>
+      <tr><td>Încadrarea frecvenței</td><td>±1 % și −6 % / +4 %</td><td class="num"><input class="f" id="cFdec"></td><td class="num" id="mFdec"></td></tr>
+      <tr><td>U1 (V)</td><td>|U_L1 + a·U_L2 + a²·U_L3| / 3</td><td class="num"><input class="f" id="cU1"></td><td class="num" id="mU1"></td></tr>
+      <tr><td>U2 (V)</td><td>|U_L1 + a²·U_L2 + a·U_L3| / 3</td><td class="num"><input class="f" id="cU2"></td><td class="num" id="mU2"></td></tr>
+      <tr><td>u2 (%) și încadrarea</td><td>U2 / U1 · 100, limita 2 %</td><td class="num"><input class="f" id="cu2"></td><td class="num" id="mu2"></td></tr>
+    </table>
+    <h3>Cazurile notate din banc</h3>
+    <table id="fNotes"></table>
+    <h3>Capturi de predat</h3>
+    <ul>
+      <li><b>C1</b> – Experimentul 1 cu valorile variantei, forme de undă și fazori.</li>
+      <li><b>C2</b> – Experimentul 2 la frecvența variantei, în timpul alunecării.</li>
+      <li><b>C3</b> – Experimentul 3 cu tabelul componentelor simetrice și componentele afișate pe diagramă.</li>
+    </ul>
+    <h3>Concluzii</h3>
+    <label for="fConcl">Răspunde: de ce un singur moment nu este suficient pentru o evaluare EN 50160 a frecvenței și a nesimetriei? Ce ar trebui să înregistreze analizorul?</label>
+    <textarea id="fConcl"></textarea>
+    <div class="ctrl noprint">
+      <button class="primary" id="btnPrint">Tipărește / Salvează PDF</button>
+      <button id="btnJson">Export JSON</button>
+      <label class="note">Import JSON <input type="file" id="fileJson" accept="application/json"></label>
+      <button id="btnCsv">Export CSV</button>
+      <span class="status" id="stFisa" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-brev" role="tabpanel">
+  <h2>Breviar</h2>
+  <details open><summary>Fazorul și sistemul de referință de 50 Hz</summary>
+    <p>O tensiune u(t) = √2·U·sin(2πft + φ) se reprezintă printr-un vector de lungime U care se rotește cu frecvența f. Dacă diagrama se privește dintr-un sistem care se rotește cu 50 Hz, fazorul se rotește doar cu diferența Δf = f − 50 Hz: unghiul lui crește cu 360°·Δf pe secundă. La 50,1 Hz fazorii fac o rotație completă în 10 s; la 49,9 Hz, la fel, dar în sens invers. Pe acest principiu lucrează sincronoscopul și unitățile de măsurare a fazorilor (PMU).</p>
+  </details>
+  <details><summary>Frecvența în EN 50160</summary>
+    <p>Pentru rețelele conectate sincron la un sistem interconectat, frecvența nominală este 50 Hz, iar valoarea medie pe 10 s trebuie să fie în intervalul 50 Hz ± 1 % (49,5–50,5 Hz) în 99,5 % din an și în intervalul −6 % / +4 % (47–52 Hz) în 100 % din timp. Rețelele insulare au limite mai largi. Limitele se verifică în ediția în vigoare a standardului.</p>
+  </details>
+  <details><summary>Nesimetria în EN 50160</summary>
+    <p>Nesimetria se exprimă prin raportul dintre componenta de secvență negativă și cea pozitivă, u2 = U2 / U1. În condiții normale de exploatare, 95 % din valorile medii pe 10 minute din fiecare săptămână trebuie să fie între 0 și 2 %; în unele zone cu multe sarcini monofazate sau bifazate se acceptă până la aproximativ 3 %. Componenta de secvență zero nu intră în această limită.</p>
+  </details>
+  <details><summary>Componentele simetrice (Fortescue)</summary>
+    <p>Cu a = 1∠120° = −0,5 + j·0,866: U0 = (U_L1 + U_L2 + U_L3) / 3; U1 = (U_L1 + a·U_L2 + a²·U_L3) / 3; U2 = (U_L1 + a²·U_L2 + a·U_L3) / 3. Pentru un sistem simetric U1 este egal cu tensiunea de fază, iar U2 = U0 = 0.</p>
+  </details>
+  <details><summary>Parametrizarea după N</summary>
+    <p>Amplitudinile fazelor se abat cu până la ±4 % de la 230 V, unghiurile cu până la ±2° de la poziția simetrică, iar frecvența este între 49,40 și 50,60 Hz. Pentru unele variante frecvența iese din banda de ±1 %, iar pentru altele nesimetria depășește 2 %.</p>
+  </details>
+  <details><summary>Bibliografie</summary>
+    <ol>
+      <li>SR EN 50160 – Caracteristici ale tensiunii furnizate de rețelele electrice publice (ediția în vigoare).</li>
+      <li>IEC 61000-4-30 – Power quality measurement methods (agregarea pe 10 s, 10 min).</li>
+      <li>C. L. Fortescue, Method of symmetrical co-ordinates applied to the solution of polyphase networks, AIEE Transactions, 1918.</li>
+      <li>IEEE/IEC 60255-118-1 – Synchrophasor measurements for power systems.</li>
+    </ol>
+  </details>
+</section>
+</main>
+
+<footer>Conf.dr.ing. Florin Ciprian Argatu · EMEC, Master SIIM · anul universitar 2026–2027 · versiunea <span id="ftVer"></span> · Aplicația nu transmite note și nu se conectează la aparatul real.</footer>
+
+<script>
+'use strict';
+const VERSION = '1.1';
+const CODE = 'EMEC-L06';
+const N_MIN = 1, N_MAX = 30, N_EXEMPLU = 7;
+const COL = ['#c62828', '#b07a00', '#1f5fbf'];
+const NOM = [0, -120, 120];
+const D2R = Math.PI / 180;
+
+const $ = (id) => document.getElementById(id);
+function fmt(v, d) { if (!isFinite(v)) return '–'; return Number(v).toFixed(d).replace('.', ','); }
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function status(id, msg, err) { const el = $(id); if (!el) return; el.textContent = msg; el.classList.toggle('err', !!err); }
+function download(name, content, type) { const blob = new Blob([content], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function validN(v) { const n = Number(v); if (!Number.isInteger(n) || n < N_MIN || n > N_MAX) return { ok: false, msg: 'N trebuie să fie un număr întreg între ' + N_MIN + ' și ' + N_MAX + '.' }; return { ok: true, n }; }
+function r2(x) { return Math.round(x * 100) / 100; }
+
+function variant(N) {
+  const d = (k, span) => ((((N * k) % 9) - 4) / 4) * span;
+  const amp = [r2(230 * (1 + d(2, 0.02))), r2(230 * (1 + d(5, 0.04))), r2(230 * (1 + d(7, 0.03)))];
+  const ang = [0, r2(-120 + d(4, 2)), r2(120 + d(8, 2))];
+  const f = r2(49.40 + 1.20 * (((N * 7 + 3) % 29) / 28));
+  return { N, amp, ang, f };
+}
+// complex helpers
+const C = (re, im) => ({ re, im });
+const add = (a, b) => C(a.re + b.re, a.im + b.im);
+const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const sc = (a, k) => C(a.re * k, a.im * k);
+const abs = (a) => Math.hypot(a.re, a.im);
+const arg = (a) => Math.atan2(a.im, a.re) / D2R;
+const pol = (m, deg) => C(m * Math.cos(deg * D2R), m * Math.sin(deg * D2R));
+const A = pol(1, 120), A2 = pol(1, 240);
+function seq(amp, ang) {
+  const U = amp.map((m, i) => pol(m, ang[i]));
+  const U0 = sc(add(add(U[0], U[1]), U[2]), 1 / 3);
+  const U1 = sc(add(add(U[0], mul(A, U[1])), mul(A2, U[2])), 1 / 3);
+  const U2 = sc(add(add(U[0], mul(A2, U[1])), mul(A, U[2])), 1 / 3);
+  return { U0, U1, U2, u2: abs(U2) / abs(U1) * 100, u0: abs(U0) / abs(U1) * 100 };
+}
+function fDecision(f) {
+  const d = (f - 50) / 50 * 100;
+  if (d >= -1 && d <= 1) return 'în ±1 % (49,5–50,5 Hz)';
+  if (d >= -6 && d <= 4) return 'în afara ±1 %, dar în −6 % / +4 %';
+  return 'în afara −6 % / +4 %';
+}
+
+let V = variant(N_EXEMPLU);
+let cur = { amp: V.amp.slice(), ang: V.ang.slice(), f: V.f };
+let running = false, tPhys = 0, lastTs = null, exp = 'e1', notes = [];
+
+function setupCanvas(cv) { const dpr = window.devicePixelRatio || 1; const r = cv.getBoundingClientRect(); cv.width = Math.max(10, Math.round(r.width * dpr)); cv.height = Math.max(10, Math.round(r.height * dpr)); const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w: r.width, h: r.height }; }
+function line(g, x1, y1, x2, y2, c, w) { g.strokeStyle = c; g.lineWidth = w || 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); }
+function arrow(g, cx, cy, x, y, c, w) { line(g, cx, cy, x, y, c, w); const a = Math.atan2(y - cy, x - cx); line(g, x, y, x - 11 * Math.cos(a - 0.45), y - 11 * Math.sin(a - 0.45), c, w); line(g, x, y, x - 11 * Math.cos(a + 0.45), y - 11 * Math.sin(a + 0.45), c, w); }
+
+function slipDeg() { return 360 * (cur.f - 50) * tPhys; }
+function draw() {
+  const slip = slipDeg();
+  $('clock').textContent = 't = ' + fmt(tPhys, 3) + ' s · alunecare ' + fmt(((slip % 360) + 540) % 360 - 180, 1) + '°';
+  // waves: two periods of the network frequency, phase at current time
+  let { ctx: g, w, h } = setupCanvas($('cvWave'));
+  g.clearRect(0, 0, w, h);
+  const left = 44, right = w - 10, mid = h / 2, scl = (h - 40) / 2 / (Math.max(...cur.amp) * Math.SQRT2 * 1.05);
+  for (const k of [-300, -150, 0, 150, 300]) { const y = mid - k * scl; line(g, left, y, right, y, k === 0 ? '#8a96a3' : '#e3e8ee'); g.fillStyle = '#556274'; g.font = '11px sans-serif'; g.fillText(String(k), 4, y + 4); }
+  g.fillText('u (V)', 4, 12); g.fillText('2 perioade →', right - 80, h - 4);
+  for (let i = 0; i < 3; i++) {
+    g.beginPath();
+    for (let x = left; x <= right; x += 2) { const th = (cur.ang[i] + slip) * D2R + 4 * Math.PI * (x - left) / (right - left); const y = mid - Math.SQRT2 * cur.amp[i] * scl * Math.sin(th); x === left ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.strokeStyle = COL[i]; g.lineWidth = 2.5; g.stroke();
+  }
+  // phasors
+  ({ ctx: g, w, h } = setupCanvas($('cvPh')));
+  g.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.38 / 240;
+  g.strokeStyle = '#e3e8ee'; for (const s of [100, 200]) { g.beginPath(); g.arc(cx, cy, s * R, 0, 2 * Math.PI); g.stroke(); }
+  line(g, 10, cy, w - 10, cy, '#8a96a3'); line(g, cx, 10, cx, h - 10, '#8a96a3');
+  g.fillStyle = '#556274'; g.font = '11px sans-serif'; g.fillText('Re', w - 24, cy - 6); g.fillText('Im', cx + 6, 16); g.fillText('100 V', cx + 100 * R + 3, cy + 12); g.fillText('200 V', cx + 200 * R + 3, cy + 12);
+  // nominal reference (dashed)
+  g.setLineDash([4, 4]); for (let i = 0; i < 3; i++) { const a = NOM[i] * D2R; line(g, cx, cy, cx + 230 * R * Math.cos(a), cy - 230 * R * Math.sin(a), '#b8c2cc'); } g.setLineDash([]);
+  for (let i = 0; i < 3; i++) { const a = (cur.ang[i] + slip) * D2R; const x = cx + cur.amp[i] * R * Math.cos(a), y = cy - cur.amp[i] * R * Math.sin(a); arrow(g, cx, cy, x, y, COL[i], 3); g.fillStyle = COL[i]; g.font = 'bold 13px sans-serif'; g.fillText('L' + (i + 1), x + 6, y - 6); }
+  const showSeq = exp === 'e3' && $('showSeq').checked;
+  if (showSeq) {
+    const s = seq(cur.amp, cur.ang); const k = 8;   // magnify U2 and U0
+    const p1 = pol(abs(s.U1), arg(s.U1) + slip), p2 = pol(abs(s.U2) * k, arg(s.U2) + slip), p0 = pol(abs(s.U0) * k, arg(s.U0) + slip);
+    arrow(g, cx, cy, cx + p1.re * R, cy - p1.im * R, '#142d4e', 2);
+    arrow(g, cx, cy, cx + p2.re * R, cy - p2.im * R, '#7b3fa0', 2.5);
+    arrow(g, cx, cy, cx + p0.re * R, cy - p0.im * R, '#1d6b3a', 2.5);
+  }
+  $('phLegend').innerHTML = '<span><i style="background:#b8c2cc"></i>poziția nominală</span>' + (showSeq ? '<span><i style="background:#142d4e"></i>U1</span><span><i style="background:#7b3fa0"></i>U2 × 8</span><span><i style="background:#1d6b3a"></i>U0 × 8</span>' : '');
+}
+function tick(ts) {
+  if (!running) { lastTs = null; return; }
+  if (lastTs !== null) tPhys += (ts - lastTs) / 1000 * Number($('slow').value);
+  lastTs = ts; draw(); requestAnimationFrame(tick);
+}
+
+function buildSliders() {
+  const box = $('slidersE1'); box.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const d = document.createElement('div'); d.className = 'card'; d.style.minWidth = '220px'; d.style.flex = '1';
+    d.innerHTML = '<b style="color:' + COL[i] + '">L' + (i + 1) + '</b>' +
+      '<label style="display:block">Amplitudine <span class="readout" id="aV' + i + '"></span> V<input type="range" id="aS' + i + '" min="180" max="260" step="0.1" style="width:100%"></label>' +
+      '<label style="display:block">Unghi <span class="readout" id="gV' + i + '"></span>°<input type="range" id="gS' + i + '" min="' + (NOM[i] - 15) + '" max="' + (NOM[i] + 15) + '" step="0.1" style="width:100%"' + (i === 0 ? ' disabled' : '') + '></label>';
+    box.appendChild(d);
+    $('aS' + i).addEventListener('input', (e) => { cur.amp[i] = Number(e.target.value); syncSliders(); refresh(); });
+    $('gS' + i).addEventListener('input', (e) => { cur.ang[i] = Number(e.target.value); syncSliders(); refresh(); });
+  }
+}
+function syncSliders() { for (let i = 0; i < 3; i++) { $('aS' + i).value = cur.amp[i]; $('gS' + i).value = cur.ang[i]; $('aV' + i).textContent = fmt(cur.amp[i], 1); $('gV' + i).textContent = fmt(cur.ang[i], 1); } $('fSl').value = cur.f; $('fVal').textContent = fmt(cur.f, 2); }
+function refresh() {
+  const df = cur.f - 50;
+  $('e2Read').textContent = 'f = ' + fmt(cur.f, 2) + ' Hz: abaterea ' + fmt(df / 50 * 100, 2) + ' %; fazorii alunecă cu ' + fmt(360 * df, 1) + ' °/s (' + (df > 0 ? 'în sens trigonometric' : (df < 0 ? 'în sens orar' : 'stau pe loc')) + ')' + (df !== 0 ? '; o rotație completă în ' + fmt(1 / Math.abs(df), 2) + ' s' : '') + '. Încadrare EN 50160: ' + fDecision(cur.f) + '.';
+  const s = seq(cur.amp, cur.ang);
+  $('seqTab').innerHTML = '<tr><th>Componenta</th><th class="num">Modul (V)</th><th class="num">Unghi (°)</th><th class="num">Raport față de U1 (%)</th></tr>' +
+    '<tr><td>U1 · secvență pozitivă</td><td class="num">' + fmt(abs(s.U1), 2) + '</td><td class="num">' + fmt(arg(s.U1), 2) + '</td><td class="num">100,00</td></tr>' +
+    '<tr><td>U2 · secvență negativă</td><td class="num">' + fmt(abs(s.U2), 2) + '</td><td class="num">' + fmt(arg(s.U2), 1) + '</td><td class="num">' + fmt(s.u2, 2) + '</td></tr>' +
+    '<tr><td>U0 · secvență zero</td><td class="num">' + fmt(abs(s.U0), 2) + '</td><td class="num">' + fmt(arg(s.U0), 1) + '</td><td class="num">' + fmt(s.u0, 2) + '</td></tr>';
+  $('e3Read').textContent = 'Factorul de nesimetrie u2 = ' + fmt(s.u2, 2) + ' % ' + (s.u2 <= 2 ? '≤ 2 %: încadrat (ca valoare instantanee).' : '> 2 %: depășește limita uzuală EN 50160.');
+  draw();
+}
+function setExp(e) {
+  exp = e;
+  document.querySelectorAll('.exps button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.exp === e)));
+  document.querySelectorAll('.expbody').forEach(s => s.classList.toggle('active', s.id === e));
+  $('phTitle').textContent = e === 'e3' ? 'Fazorii și componentele simetrice' : 'Fazorii în referința de 50 Hz';
+  refresh();
+}
+function applyN(n) {
+  V = variant(n); cur = { amp: V.amp.slice(), ang: V.ang.slice(), f: V.f }; tPhys = 0;
+  $('nIn').value = n;
+  $('vCode').textContent = CODE + '-N' + String(n).padStart(2, '0') + '-v' + VERSION;
+  $('vData').textContent = 'U = ' + V.amp.map(x => fmt(x, 2)).join(' / ') + ' V · unghiuri ' + V.ang.map(x => fmt(x, 2)).join(' / ') + '° · f = ' + fmt(V.f, 2) + ' Hz';
+  status('stVar', 'Varianta N = ' + n + ' aplicată.');
+  syncSliders(); refresh(); fillFisa(); saveLocal();
+}
+function fillFisa() {
+  $('fN').textContent = V.N; $('fCode').textContent = $('vCode').textContent;
+  $('fData').innerHTML = '<tr><th>Mărime</th><th class="num">L1</th><th class="num">L2</th><th class="num">L3</th></tr>' +
+    '<tr><td>Tensiunea de fază (V)</td>' + V.amp.map(x => '<td class="num">' + fmt(x, 2) + '</td>').join('') + '</tr>' +
+    '<tr><td>Unghiul (°)</td>' + V.ang.map(x => '<td class="num">' + fmt(x, 2) + '</td>').join('') + '</tr>' +
+    '<tr><td>Frecvența rețelei</td><td class="num" colspan="3">' + fmt(V.f, 2) + ' Hz</td></tr>';
+  const nf = notes.filter(n => n.exp === 'E2').slice(-1)[0], ns = notes.filter(n => n.exp === 'E3').slice(-1)[0];
+  $('mDf').textContent = nf ? fmt(nf.df, 2) : ''; $('mSlip').textContent = nf ? fmt(nf.slip, 1) : ''; $('mTr').textContent = nf ? (isFinite(nf.tr) ? fmt(nf.tr, 2) : '–') : ''; $('mFdec').textContent = nf ? nf.dec : '';
+  $('mU1').textContent = ns ? fmt(ns.U1, 2) : ''; $('mU2').textContent = ns ? fmt(ns.U2, 2) : ''; $('mu2').textContent = ns ? fmt(ns.u2, 2) + ' %' : '';
+  $('fNotes').innerHTML = '<tr><th>Experiment</th><th>Ce s-a notat</th><th>Ora</th></tr>' + (notes.map(n => '<tr><td>' + esc(n.exp) + '</td><td>' + esc(n.text) + '</td><td>' + esc(n.time) + '</td></tr>').join('') || '<tr><td colspan="3" class="note">Nimic notat încă.</td></tr>');
+}
+function addNote(n, st) { n.time = new Date().toLocaleTimeString('ro-RO'); notes.push(n); fillFisa(); saveLocal(); status(st, 'Notat în fișă.'); }
+
+const LSKEY = CODE + '-' + VERSION;
+const CALC = ['cDf', 'cSlip', 'cTr', 'cFdec', 'cU1', 'cU2', 'cu2'];
+function collect() { return { code: CODE, version: VERSION, N: V.N, name: $('fName').value, group: $('fGroup').value, calc: CALC.reduce((o, k) => (o[k] = $(k).value, o), {}), concl: $('fConcl').value, notes }; }
+function saveLocal() { try { localStorage.setItem(LSKEY, JSON.stringify(collect())); } catch (e) { status('stFisa', 'Salvarea automată nu merge în acest browser: folosește Export JSON.', true); } }
+function restore(d) {
+  if (!d || d.code !== CODE || d.version !== VERSION || !validN(d.N).ok || !Array.isArray(d.notes)) throw new Error('fișier străin');
+  applyN(d.N); notes = d.notes.filter(n => n && typeof n.exp === 'string' && typeof n.text === 'string');
+  $('fName').value = String(d.name || ''); $('fGroup').value = String(d.group || ''); $('fConcl').value = String(d.concl || '');
+  if (d.calc) for (const k of CALC) if (k in d.calc) $(k).value = String(d.calc[k]);
+  fillFisa();
+}
+function restoreLocal() { try { const s = localStorage.getItem(LSKEY); if (s) { restore(JSON.parse(s)); return true; } } catch (e) { } return false; }
+function toCSV() { const now = new Date().toISOString(); const rows = [['CODE', 'VERSION', 'N', 'data_ora', 'experiment', 'notat', 'ora']]; notes.forEach(n => rows.push([CODE, VERSION, V.N, now, n.exp, n.text, n.time])); return rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\n'); }
+
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', 'false')); b.setAttribute('aria-selected', 'true');
+  document.querySelectorAll('section.tab').forEach(s => s.classList.remove('active')); $(b.dataset.tab).classList.add('active'); refresh(); fillFisa();
+}));
+document.querySelectorAll('.exps button').forEach(b => b.addEventListener('click', () => setExp(b.dataset.exp)));
+$('btnPlay').addEventListener('click', () => { if (!running) { running = true; requestAnimationFrame(tick); } });
+$('btnPause').addEventListener('click', () => { running = false; });
+$('btnReset').addEventListener('click', () => { running = false; tPhys = 0; draw(); });
+$('slow').addEventListener('input', () => { $('slowVal').textContent = fmt(Number($('slow').value), 2) + '×'; });
+$('fSl').addEventListener('input', () => { cur.f = Number($('fSl').value); $('fVal').textContent = fmt(cur.f, 2); refresh(); });
+$('fVar').addEventListener('click', () => { cur.f = V.f; syncSliders(); refresh(); });
+$('fNom').addEventListener('click', () => { cur.f = 50; syncSliders(); refresh(); });
+$('btnSym').addEventListener('click', () => { cur.amp = [230, 230, 230]; cur.ang = NOM.slice(); syncSliders(); refresh(); });
+$('btnVarE1').addEventListener('click', () => { cur.amp = V.amp.slice(); cur.ang = V.ang.slice(); syncSliders(); refresh(); });
+$('showSeq').addEventListener('change', draw);
+$('note2').addEventListener('click', () => { const df = cur.f - 50; addNote({ exp: 'E2', df: df / 50 * 100, slip: 360 * df, tr: df === 0 ? Infinity : 1 / Math.abs(df), dec: fDecision(cur.f), text: 'f = ' + fmt(cur.f, 2) + ' Hz; abatere ' + fmt(df / 50 * 100, 2) + ' %; alunecare ' + fmt(360 * df, 1) + ' °/s; ' + fDecision(cur.f) }, 'st2'); });
+$('note3').addEventListener('click', () => { const s = seq(cur.amp, cur.ang); addNote({ exp: 'E3', U1: abs(s.U1), U2: abs(s.U2), u2: s.u2, text: 'U = ' + cur.amp.map(x => fmt(x, 1)).join('/') + ' V, unghiuri ' + cur.ang.map(x => fmt(x, 1)).join('/') + '°: U1 = ' + fmt(abs(s.U1), 2) + ' V, U2 = ' + fmt(abs(s.U2), 2) + ' V, u2 = ' + fmt(s.u2, 2) + ' %' }, 'st3'); });
+$('btnApply').addEventListener('click', () => { const r = validN($('nIn').value); if (!r.ok) { status('stVar', r.msg, true); return; } notes = []; applyN(r.n); });
+$('btnEx').addEventListener('click', () => { notes = []; applyN(N_EXEMPLU); });
+$('btnBoard').addEventListener('click', (e) => { const on = document.documentElement.classList.toggle('board'); e.target.setAttribute('aria-pressed', on); e.target.textContent = on ? 'Dimensiune normală' : 'Mărește pentru tablă'; draw(); });
+['fName', 'fGroup', 'fConcl', ...CALC].forEach(id => $(id).addEventListener('input', saveLocal));
+$('btnPrint').addEventListener('click', () => window.print());
+$('btnJson').addEventListener('click', () => download('EMEC_L06_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.json', JSON.stringify(collect(), null, 2), 'application/json'));
+$('btnCsv').addEventListener('click', () => download('EMEC_L06_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.csv', toCSV(), 'text/csv'));
+$('fileJson').addEventListener('change', (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { restore(JSON.parse(rd.result)); status('stFisa', 'Fișa a fost încărcată.'); } catch (err) { status('stFisa', 'Fișierul nu este o fișă EMEC L06 v' + VERSION + ' și a fost respins.', true); } }; rd.readAsText(f); });
+window.addEventListener('resize', draw);
+
+$('ftVer').textContent = VERSION;
+$('slowVal').textContent = fmt(Number($('slow').value), 2) + '×';
+buildSliders();
+if (!restoreLocal()) applyN(N_EXEMPLU);
+setExp('e1');
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { $('slow').value = 0.1; $('slowVal').textContent = '0,10×'; }
+</script>
+</body>
+</html>

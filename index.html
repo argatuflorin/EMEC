@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMEC · Laboratoare virtuale</title>
+<style>
+  :root { --navy:#142d4e; --teal:#007f86; --paper:#f3f6f8; --panel:#fff; --ink:#172231; --muted:#556274; --line:#c9d3dd; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --navy:#0e1f36; --teal:#4fb3ba; --paper:#121820; --panel:#1b2430; --ink:#e6edf3; --muted:#9fb0c2; --line:#2e3b4a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"Segoe UI Variable","Segoe UI","Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  header { background:var(--navy); color:#fff; padding:1.6rem 1.5rem 1.4rem; }
+  header p { margin:0; opacity:.85; font-size:.95rem; }
+  header h1 { margin:.2rem 0 .3rem; font-family:"Bahnschrift","Segoe UI Semibold",Arial,sans-serif; font-weight:600; font-size:2rem; }
+  main { max-width:980px; margin:0 auto; padding:1.4rem 1.5rem 2rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; }
+  a.card { display:block; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem 1.1rem; color:inherit; text-decoration:none; }
+  a.card:hover, a.card:focus-visible { border-color:var(--teal); outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 30%, transparent); }
+  .code { font-family:Consolas,Menlo,monospace; color:var(--teal); font-weight:600; }
+  .card h2 { margin:.2rem 0 .3rem; font-size:1.15rem; }
+  .card p { margin:0; color:var(--muted); font-size:.95rem; }
+  .note { color:var(--muted); font-size:.92rem; margin-top:1.4rem; }
+  footer { text-align:center; color:var(--muted); font-size:.85rem; padding:1rem; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <p>Universitatea Națională de Știință și Tehnologie POLITEHNICA București · Facultatea de Inginerie Electrică · Master SIIM, anul 2</p>
+  <h1>EMEC · Laboratoare virtuale</h1>
+  <p>Echipamente și metode de evaluare a calității energiei electrice · Conf.dr.ing. Florin Ciprian Argatu</p>
+</header>
+<main>
+  <div class="grid">
+    <a class="card" href="L02/EMEC_L02_Analizor_UMG104_v1.0.html"><span class="code">L02</span><h2>Analizorul de rețea UMG 104</h2><p>Lanțul de măsurare, raportul TC, fereastra de 200 ms comparată cu clasa A, armonici, Modbus RTU.</p></a>
+    <a class="card" href="L03/EMEC_L03_Calibrare_Incertitudine_v1.0.html"><span class="code">L03</span><h2>Calibrare și incertitudine</h2><p>Verificarea prin comparație cu un etalon, bugetul GUM, incertitudinea extinsă, decizia de conformitate.</p></a>
+    <a class="card" href="L04/EMEC_L04_Trifazat_Armonici_v1.0.html"><span class="code">L04</span><h2>Trifazat și armonici</h2><p>Sistemul trifazat cu neutru, dezechilibrul, armonicile 3 și 5, RMS, THD, curentul din neutru.</p></a>
+    <a class="card" href="L05/EMEC_L05_RMS_Variatii_Tensiune_v1.0.html"><span class="code">L05</span><h2>Valoarea efectivă și variațiile tensiunii</h2><p>RMS pe ferestre de lungimi diferite, treapta de tensiune, evaluarea săptămânală EN 50160.</p></a>
+    <a class="card" href="L06/EMEC_L06_Frecventa_Nesimetrie_v1.1.html"><span class="code">L06</span><h2>Frecvența și nesimetria</h2><p>Fazori și alunecarea față de 50 Hz, componentele simetrice U1, U2, U0 și factorul de nesimetrie u2.</p></a>
+  </div>
+  <p class="note">Fiecare aplicație cere indicele individual N, primit la laborator; codul variantei apare pe fișa exportată. L01 (protecția muncii), îndrumarele și cursurile sunt în Moodle. Aplicațiile sunt simulări didactice și nu înlocuiesc măsurarea pe aparatele reale.</p>
+</main>
+<footer>EMEC · Master SIIM · anul universitar 2026–2027 · oglinda folderului 06 – GITHUB &amp; SIMULATOARE din Google Drive</footer>
+</body>
+</html>

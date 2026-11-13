@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMEC · L02 · Analizorul de rețea UMG 104</title>
+<style>
+  :root {
+    --navy: #142d4e;
+    --teal: #007f86;
+    --paper: #f3f6f8;
+    --panel: #ffffff;
+    --ink: #172231;
+    --muted: #556274;
+    --line: #c9d3dd;
+    --lcd: #c4d3bd;
+    --lcd-ink: #1c2a19;
+    --l1: #c62828;
+    --l2: #b07a00;
+    --l3: #1f5fbf;
+    --ln: #7b3fa0;
+    --warn: #a23b00;
+    --ok: #1d6b3a;
+    --focus: #ffbf47;
+    --font-ui: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-head: "Bahnschrift", "DIN Alternate", "Segoe UI Semibold", "Arial Narrow", sans-serif;
+    --font-lcd: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; }
+  html.board { font-size: 20px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header.top { background: var(--navy); color: #fff; padding: 1rem 1.5rem 0.9rem; }
+  header.top .course { font-size: 0.9rem; opacity: 0.85; margin: 0; }
+  header.top h1 { font-family: var(--font-head); font-weight: 600; font-size: 1.9rem; margin: 0.1rem 0 0; letter-spacing: 0.01em; }
+  header.top .sub { margin: 0.2rem 0 0; font-size: 0.95rem; opacity: 0.9; }
+  .variant { background: #e4eef0; border-bottom: 1px solid var(--line); padding: 0.7rem 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; }
+  .variant label { font-weight: 600; }
+  .variant input[type=number] { width: 4.5rem; font-size: 1rem; padding: 0.3rem; }
+  .variant .code { font-family: var(--font-lcd); background: #fff; padding: 0.2rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; }
+  .variant .data { flex-basis: 100%; font-size: 0.95rem; color: var(--muted); }
+  button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--teal); background: #fff; color: var(--teal); cursor: pointer; min-height: 2.4rem; }
+  button.primary { background: var(--teal); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  nav.tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--paper); border-bottom: 2px solid var(--navy); flex-wrap: wrap; }
+  nav.tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--navy); padding: 0.7rem 1.1rem; font-weight: 600; }
+  nav.tabs button[aria-selected=true] { background: var(--navy); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 1.2rem 1.5rem 2rem; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  h2 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.45rem; margin: 0.4rem 0 0.8rem; }
+  h3 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.15rem; margin: 1.2rem 0 0.5rem; }
+  p, li { max-width: 78ch; }
+  .grid2 { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 1.4rem; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { border: 1px solid var(--line); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+  th { background: #e8edf2; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.92rem; }
+  .status { min-height: 1.4rem; font-size: 0.95rem; color: var(--ok); }
+  .status.err { color: var(--warn); }
+
+  /* ---------- virtual analyser ---------- */
+  .device { background: linear-gradient(#e9ecee, #d5dade); border: 2px solid #8b96a1; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 0 #9aa4ae; }
+  .device .terms { display: flex; justify-content: space-between; font-family: var(--font-lcd); font-size: 0.72rem; color: #3e4955; margin-bottom: 0.5rem; }
+  .device .terms span { background: #2b3440; color: #dfe6ec; padding: 0.1rem 0.35rem; border-radius: 3px; }
+  .device .name { font-family: var(--font-head); font-weight: 600; color: #2b3440; margin: 0.2rem 0 0.6rem; font-size: 1rem; }
+  .lcd { background: var(--lcd); color: var(--lcd-ink); border: 3px solid #5f6a62; border-radius: 6px; padding: 0.6rem 0.8rem; font-family: var(--font-lcd); min-height: 7.6rem; position: relative; }
+  .lcd .row1 { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .lcd .big { font-size: 2.6rem; text-align: right; letter-spacing: 0.04em; line-height: 1.2; margin-top: 0.2rem; }
+  .lcd .unit { font-size: 1.2rem; margin-left: 0.3rem; }
+  .lcd .row3 { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.1rem; }
+  .lcd .cur { text-decoration: underline; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .lcd .cur { animation: none; } }
+  .keys { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .keys button { flex: 1; min-height: 3rem; background: #2b3440; color: #fff; border-color: #2b3440; font-weight: 600; }
+  .keys button.both { background: #4a5663; }
+  .keyhelp { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+
+  .exps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+  .exps button[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .expbody { display: none; }
+  .expbody.active { display: block; }
+  canvas { width: 100%; height: 260px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin: 0.6rem 0; }
+  .ctrl label { font-size: 0.95rem; }
+  .ctrl input[type=range] { width: 200px; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin: 0.4rem 0; }
+  .legend i { display: inline-block; width: 1.4rem; height: 0.25rem; vertical-align: middle; margin-right: 0.3rem; }
+  .readout { font-variant-numeric: tabular-nums; }
+  svg text { font-family: var(--font-ui); }
+  .frame { font-family: var(--font-lcd); font-size: 1.15rem; background: #0f1d2c; color: #d8f3f2; padding: 0.6rem 0.8rem; border-radius: 6px; word-break: break-all; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+  input.f { width: 7rem; font: inherit; padding: 0.2rem 0.3rem; }
+  textarea { width: 100%; min-height: 5rem; font: inherit; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem; border-top: 1px solid var(--line); }
+  @media (max-width: 700px) {
+    .grid2 { grid-template-columns: 1fr; }
+    header.top h1 { font-size: 1.45rem; }
+    .lcd .big { font-size: 2rem; }
+  }
+  @media print {
+    .noprint, nav.tabs, header.top, .variant { display: none !important; }
+    section.tab { display: none !important; }
+    #tab-fisa { display: block !important; }
+    body { background: #fff; }
+    .card { border: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="course">EMEC · Echipamente și metode de evaluare a calității energiei electrice · Master SIIM, anul 2</p>
+  <h1>L02 · Analizorul de rețea UMG 104</h1>
+  <p class="sub">Studiul unui analizor de rețea și comparația cu cerințele clasei A (IEC 61000-4-30) · Conf.dr.ing. Florin Ciprian Argatu</p>
+</header>
+
+<div class="variant noprint" aria-label="Varianta individuală">
+  <label for="nIn">Numărul tău N (1–30)</label>
+  <input id="nIn" type="number" min="1" max="30" step="1" value="7">
+  <button class="primary" id="btnApply">Aplică varianta N</button>
+  <button id="btnEx">Exemplul N = 7</button>
+  <span>Cod variantă: <span class="code" id="vCode">–</span></span>
+  <button id="btnBoard" aria-pressed="false">Mărește pentru tablă</button>
+  <div class="data" id="vData"></div>
+  <div class="status" id="stVar" role="status"></div>
+</div>
+
+<nav class="tabs noprint" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="tab-start">1 · Începe aici</button>
+  <button role="tab" aria-selected="false" data-tab="tab-banc">2 · Banc virtual</button>
+  <button role="tab" aria-selected="false" data-tab="tab-fisa">3 · Fișa studentului</button>
+  <button role="tab" aria-selected="false" data-tab="tab-brev">4 · Breviar</button>
+</nav>
+
+<main>
+<!-- ================= TAB 1 ================= -->
+<section class="tab active" id="tab-start" role="tabpanel">
+  <h2>Ce investighezi</h2>
+  <p>Un analizor de rețea nu „vede” direct curentul din tablou. Între conductor și valoarea de pe afișaj stau transformatorul de curent, intrările analizorului, eșantionarea, calculul valorilor efective pe o fereastră de timp și configurarea făcută de om. La L02 parcurgi acest lanț pe un UMG 104 virtual, cu datele variantei tale, și compari ce face aparatul cu ce cere un analizor de clasa A.</p>
+  <h3>Parcursul în 120 de minute</h3>
+  <table>
+    <tr><th>Timp</th><th>Activitate</th></tr>
+    <tr><td>0–20 min</td><td>Demonstrația profesorului: UMG 104 din tabloul T01 al laboratorului ConectLab EB104 și integrarea lui în arhitectura de monitorizare.</td></tr>
+    <tr><td>20–40 min</td><td>Experimentul 1 · Lanțul de măsurare: de la curentul din primar la valoarea efectivă.</td></tr>
+    <tr><td>40–60 min</td><td>Experimentul 2 · Configurarea raportului TC din tastele aparatului.</td></tr>
+    <tr><td>60–80 min</td><td>Experimentul 3 · Fereastra de 200 ms comparată cu fereastra de 10 perioade a clasei A.</td></tr>
+    <tr><td>80–100 min</td><td>Experimentul 4 · Armonicile până la ordinul 40 și THD.</td></tr>
+    <tr><td>100–120 min</td><td>Experimentul 5 · Citirea prin Modbus RTU; completarea fișei și a concluziilor.</td></tr>
+  </table>
+  <h3>Ce predai</h3>
+  <p>Fișa din fila 3, exportată ca PDF (Tipărește / Salvează PDF), cu N și codul variantei, calculele tale, valorile citite pe afișajul virtual, capturile C1–C3 și concluziile. Numele fișierului: <span class="code" style="font-family:var(--font-lcd)">EMEC_L02_Nxx_Nume_Prenume.pdf</span>.</p>
+  <h3>Ipotezele modelului</h3>
+  <ul>
+    <li>Datele tehnice ale aparatului sunt luate din manualul Janitza UMG 104 (doc. 1.041.015.0.i): eșantionare 20 kHz pe fază, valori efective pe 200 ms, armonici 1–40, intrări de curent ../5 A, raport TC programat implicit 5 A / 5 A, adresa de programare 000 pentru curentul primar.</li>
+    <li>Rețeaua și sarcina sunt sintetice și depind de N. Simularea nu este o măsurare fizică și nu înlocuiește lucrul pe aparatul real.</li>
+    <li>Algoritmul intern al UMG 104 nu este publicat în manual. Experimentul 3 compară două ferestre de calcul ca model didactic, nu descrie firmware-ul aparatului.</li>
+    <li>Puterea activă și reactivă se calculează pe fundamentală; puterea armonicilor se neglijează (tensiunea are distorsiune mică).</li>
+  </ul>
+</section>
+
+<!-- ================= TAB 2 ================= -->
+<section class="tab" id="tab-banc" role="tabpanel">
+  <div class="grid2">
+    <div>
+      <div class="device" aria-label="UMG 104 virtual">
+        <div class="terms"><span>L1 L2 L3 N</span><span>I1 I2 I3</span><span>RS485 A B</span></div>
+        <div class="name">UMG 104 · simulat</div>
+        <div class="lcd" id="lcd" aria-live="polite">
+          <div class="row1"><span id="lcdTop">L1</span><span id="lcdMode"></span></div>
+          <div class="big"><span id="lcdVal">0.00</span><span class="unit" id="lcdUnit">V</span></div>
+          <div class="row3"><span id="lcdName">Tensiune L1-N</span><span id="lcdPh"></span></div>
+        </div>
+        <div class="keys">
+          <button id="key1" title="Tasta 1">Tasta 1</button>
+          <button id="key2" title="Tasta 2">Tasta 2</button>
+          <button id="key12" class="both" title="Tastele 1 și 2 apăsate împreună">1 + 2 (1 s)</button>
+        </div>
+        <p class="keyhelp" id="keyHelp">Afișare: Tasta 2 schimbă mărimea, Tasta 1 schimbă faza. 1 + 2 intră în modul de programare.</p>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h3 style="margin-top:0">Configurare curentă a aparatului</h3>
+        <table id="cfgTable"></table>
+        <div class="ctrl noprint">
+          <button id="btnFactory">Revino la setările din fabrică</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="exps noprint" role="group" aria-label="Experimente">
+        <button data-exp="e1" aria-pressed="true">Experiment 1 · Lanțul de măsurare</button>
+        <button data-exp="e2" aria-pressed="false">Experiment 2 · Raportul TC</button>
+        <button data-exp="e3" aria-pressed="false">Experiment 3 · Fereastra de calcul</button>
+        <button data-exp="e4" aria-pressed="false">Experiment 4 · Armonici</button>
+        <button data-exp="e5" aria-pressed="false">Experiment 5 · Modbus RTU</button>
+      </div>
+
+      <!-- E1 -->
+      <div class="expbody active card" id="e1">
+        <h3 style="margin-top:0">Experiment 1 · De la conductor la valoarea efectivă</h3>
+        <svg viewBox="0 0 760 150" width="100%" role="img" aria-label="Lanțul de măsurare">
+          <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#142d4e"/></marker></defs>
+          <rect x="5" y="40" width="120" height="60" rx="6" fill="#fff" stroke="#142d4e"/>
+          <text x="65" y="66" text-anchor="middle" font-size="14">Conductor L1</text>
+          <text x="65" y="86" text-anchor="middle" font-size="13" id="svgIp">Ip = – A</text>
+          <line x1="125" y1="70" x2="165" y2="70" stroke="#142d4e" stroke-width="2" marker-end="url(#ar)"/>
+          <rect x="168" y="40" width="120" height="60" rx="6" fill="#fff" stroke="#142d4e"/>
+          <text x="228" y="66" text-anchor="middle" font-size="14">TC</text>
+          <text x="228" y="86" text-anchor="middle" font-size="13" id="svgCt">– / 5 A</text>
+          <line x1="288" y1="70" x2="328" y2="70" stroke="#142d4e" stroke-width="2" marker-end="url(#ar)"/>
+          <rect x="331" y="40" width="120" height="60" rx="6" fill="#fff" stroke="#142d4e"/>
+          <text x="391" y="66" text-anchor="middle" font-size="14">Intrarea I1</text>
+          <text x="391" y="86" text-anchor="middle" font-size="13" id="svgIs">Is = – A</text>
+          <line x1="451" y1="70" x2="491" y2="70" stroke="#142d4e" stroke-width="2" marker-end="url(#ar)"/>
+          <rect x="494" y="40" width="120" height="60" rx="6" fill="#fff" stroke="#142d4e"/>
+          <text x="554" y="62" text-anchor="middle" font-size="14">Eșantionare</text>
+          <text x="554" y="80" text-anchor="middle" font-size="13">20 kHz · 200 ms</text>
+          <line x1="614" y1="70" x2="654" y2="70" stroke="#142d4e" stroke-width="2" marker-end="url(#ar)"/>
+          <rect x="657" y="40" width="98" height="60" rx="6" fill="#e4eef0" stroke="#007f86"/>
+          <text x="706" y="62" text-anchor="middle" font-size="14">Afișaj</text>
+          <text x="706" y="82" text-anchor="middle" font-size="13" id="svgDisp">– A</text>
+          <text x="391" y="128" text-anchor="middle" font-size="12" fill="#556274">Afișaj = Is × (primar programat / secundar programat)</text>
+        </svg>
+        <canvas id="cvWave" aria-label="Formele de undă u L1 și i L1 secundar"></canvas>
+        <div class="legend"><span><i style="background:var(--l1)"></i>u L1-N (V)</span><span><i style="background:var(--teal)"></i>i L1 în secundarul TC (A)</span><span><i style="background:#142d4e"></i>eșantioane (o perioadă are <span id="spp">400</span>)</span></div>
+        <div class="ctrl noprint">
+          <button id="btnPlay">Play</button><button id="btnPause">Pauză</button><button id="btnReset">Reset timp</button>
+          <label>Viteză redare <input type="range" id="speed" min="0.02" max="0.5" step="0.02" value="0.1"></label>
+          <label><input type="checkbox" id="showSamples"> Arată eșantioanele (zoom pe 1 ms)</label>
+        </div>
+        <p class="readout" id="e1Read"></p>
+        <div class="ctrl noprint"><button id="note1">Notează cazul în fișă</button><span class="status" id="st1" role="status"></span></div>
+      </div>
+
+      <!-- E2 -->
+      <div class="expbody card" id="e2">
+        <h3 style="margin-top:0">Experiment 2 · Raportul transformatorului de curent</h3>
+        <p>Aparatul vine din fabrică cu raportul 5 A / 5 A. Cu acest raport afișează curentul din secundar, nu pe cel din conductor. Calculează întâi ce trebuie să afișeze pentru varianta ta, apoi programează aparatul.</p>
+        <ol>
+          <li>Citește pe afișaj curentul L1 cu setarea din fabrică (Tasta 2 până la „Curent”).</li>
+          <li>Apasă 1 + 2: apare PRG și adresa 000.</li>
+          <li>Tasta 1 alege cifra (cursorul clipește), Tasta 2 o mărește cu 1. Scrie la adresa 000 curentul primar al TC din varianta ta.</li>
+          <li>Apasă 1 + 2 ca să salvezi și să revii la afișare. Citește din nou curentul L1 și puterea totală.</li>
+        </ol>
+        <table id="e2Table"><tr><th>Setare</th><th class="num">I L1 afișat (A)</th><th class="num">P total afișat (kW)</th></tr></table>
+        <p class="note" id="e2Hint"></p>
+        <div class="ctrl noprint"><button id="note2">Notează cazul în fișă</button><span class="status" id="st2" role="status"></span></div>
+      </div>
+
+      <!-- E3 -->
+      <div class="expbody card" id="e3">
+        <h3 style="margin-top:0">Experiment 3 · Fereastra de 200 ms și fereastra clasei A</h3>
+        <p>Clasa A (IEC 61000-4-30) calculează valoarea efectivă pe un interval de 10 perioade la 50 Hz, sincronizat cu frecvența rețelei. O fereastră fixă de 200 ms conține exact 10 perioade doar la 50,00 Hz. Mută frecvența și urmărește cât se abate valoarea efectivă în funcție de momentul în care începe fereastra.</p>
+        <div class="ctrl">
+          <label>Frecvența rețelei <input type="range" id="fSl" min="49.5" max="50.5" step="0.01" value="50"> <span id="fVal" class="readout"></span> Hz</label>
+          <button class="noprint" id="fVar">Frecvența variantei</button>
+        </div>
+        <canvas id="cvWin" aria-label="Eroarea valorii efective în funcție de faza de start"></canvas>
+        <div class="legend"><span><i style="background:var(--warn)"></i>fereastră fixă 200 ms</span><span><i style="background:var(--ok)"></i>10 perioade sincronizate (clasa A)</span><span><i style="background:#8a96a3"></i>limita ±0,1 % (incertitudinea clasei A pentru tensiune)</span></div>
+        <p class="readout" id="e3Read"></p>
+        <div class="ctrl noprint"><button id="note3">Notează cazul în fișă</button><span class="status" id="st3" role="status"></span></div>
+      </div>
+
+      <!-- E4 -->
+      <div class="expbody card" id="e4">
+        <h3 style="margin-top:0">Experiment 4 · Armonicile curentului L1</h3>
+        <p>UMG 104 calculează componentele armonice de la ordinul 1 la 40. La 20 kHz, frecvența Nyquist este 10 kHz, iar armonica 40 la 50 Hz are 2 kHz. Calculează THD al curentului din spectrul variantei, apoi verifică pe afișaj (mărimea „THD I”).</p>
+        <canvas id="cvSpec" aria-label="Spectrul curentului L1"></canvas>
+        <p class="readout" id="e4Read"></p>
+        <div class="ctrl noprint"><button id="note4">Notează cazul în fișă</button><span class="status" id="st4" role="status"></span></div>
+      </div>
+
+      <!-- E5 -->
+      <div class="expbody card" id="e5">
+        <h3 style="margin-top:0">Experiment 5 · Citirea prin Modbus RTU</h3>
+        <svg viewBox="0 0 760 120" width="100%" role="img" aria-label="Arhitectura de citire">
+          <defs><marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#007f86"/></marker></defs>
+          <g font-size="13" text-anchor="middle">
+            <rect x="5" y="30" width="130" height="56" rx="6" fill="#fff" stroke="#142d4e"/><text x="70" y="54">UMG 104</text><text x="70" y="72" id="svgAddr">adresa –</text>
+            <line x1="135" y1="58" x2="185" y2="58" stroke="#007f86" stroke-width="2" marker-end="url(#ar2)"/><text x="160" y="48" font-size="11">RS-485</text>
+            <rect x="188" y="30" width="140" height="56" rx="6" fill="#fff" stroke="#142d4e"/><text x="258" y="54">Gateway</text><text x="258" y="72">Modbus master</text>
+            <line x1="328" y1="58" x2="378" y2="58" stroke="#007f86" stroke-width="2" marker-end="url(#ar2)"/><text x="353" y="48" font-size="11">MQTT</text>
+            <rect x="381" y="30" width="130" height="56" rx="6" fill="#fff" stroke="#142d4e"/><text x="446" y="54">Broker</text><text x="446" y="72">mesaje</text>
+            <line x1="511" y1="58" x2="561" y2="58" stroke="#007f86" stroke-width="2" marker-end="url(#ar2)"/>
+            <rect x="564" y="30" width="190" height="56" rx="6" fill="#e4eef0" stroke="#007f86"/><text x="659" y="54">Stocare și dashboard</text><text x="659" y="72">istoric, alarme</text>
+          </g>
+        </svg>
+        <p>Gateway-ul trimite aparatului o cerere Modbus RTU cu funcția 03 (citirea registrelor). Adresa aparatului se programează la adresa 200 a parametrilor; în varianta ta este N. Adresa registrului se ia din lista de adrese Modbus a aparatului (pe CD-ul livrat cu UMG 104); profesorul o arată pe tabloul T01. O valoare de tip float ocupă 2 registre.</p>
+        <div class="ctrl">
+          <label>Adresa aparatului <input class="f" id="mbAddr" type="number" min="1" max="247"></label>
+          <label>Registrul de start (zecimal) <input class="f" id="mbReg" type="number" min="0" max="65535" value="0"></label>
+          <label>Număr registre <input class="f" id="mbCnt" type="number" min="1" max="125" value="2"></label>
+        </div>
+        <div class="frame" id="mbFrame">–</div>
+        <p class="readout" id="e5Read"></p>
+        <div class="ctrl noprint"><button id="note5">Notează cazul în fișă</button><span class="status" id="st5" role="status"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TAB 3 ================= -->
+<section class="tab" id="tab-fisa" role="tabpanel">
+  <div class="card">
+    <h2>Fișa studentului · EMEC L02</h2>
+    <div class="ctrl">
+      <label>Nume și prenume <input id="fName" style="width:16rem"></label>
+      <label>Grupa <input id="fGroup" style="width:6rem"></label>
+      <span>N = <b id="fN">–</b> · cod <b id="fCode">–</b></span>
+    </div>
+    <h3>Date impuse</h3>
+    <table id="fData"></table>
+    <h3>Calculează înainte de verificare</h3>
+    <table>
+      <tr><th>Mărimea</th><th>Relația</th><th class="num">Calculul tău</th><th class="num">Citit în aplicație</th></tr>
+      <tr><td>Curentul în secundarul TC, faza L1 (A)</td><td>Is = Ip · 5 / Ipn</td><td class="num"><input class="f" id="cIs"></td><td class="num" id="mIs"></td></tr>
+      <tr><td>Afișaj I L1 cu setarea din fabrică (A)</td><td>Is · 5 / 5</td><td class="num"><input class="f" id="cIf"></td><td class="num" id="mIf"></td></tr>
+      <tr><td>Valoarea programată la adresa 000 (A)</td><td>Ipn</td><td class="num"><input class="f" id="c000"></td><td class="num" id="m000"></td></tr>
+      <tr><td>Puterea activă totală corectă (kW)</td><td>Σ U·I1·cos φ1</td><td class="num"><input class="f" id="cP"></td><td class="num" id="mP"></td></tr>
+      <tr><td>Abaterea maximă a valorii efective, fereastră 200 ms, la f a variantei (%)</td><td>Experimentul 3</td><td class="num"><input class="f" id="cWin"></td><td class="num" id="mWin"></td></tr>
+      <tr><td>THD al curentului L1 (%)</td><td>√(Σ Ih²) / I1</td><td class="num"><input class="f" id="cThd"></td><td class="num" id="mThd"></td></tr>
+      <tr><td>Cadrul Modbus pentru registrul ales (hex)</td><td>adresă · 03 · registru · număr · CRC</td><td class="num"><input class="f" id="cFrame" style="width:14rem"></td><td class="num" id="mFrame"></td></tr>
+    </table>
+    <h3>Cazurile notate din banc</h3>
+    <table id="fNotes"><tr><th>Experiment</th><th>Ce s-a notat</th><th>Ora</th></tr></table>
+    <h3>Capturi de predat</h3>
+    <ul>
+      <li><b>C1</b> – afișajul virtual cu curentul L1 la setarea din fabrică și același afișaj după programarea adresei 000.</li>
+      <li><b>C2</b> – graficul din Experimentul 3 la frecvența variantei tale, cu valoarea abaterii maxime.</li>
+      <li><b>C3</b> – spectrul din Experimentul 4 și cadrul Modbus din Experimentul 5.</li>
+    </ul>
+    <h3>Concluzii</h3>
+    <label for="fConcl">Răspunde: este UMG 104 potrivit pentru o evaluare EN 50160 cu valoare contractuală? Ce l-ar face potrivit pentru monitorizarea continuă a tabloului?</label>
+    <textarea id="fConcl"></textarea>
+    <div class="ctrl noprint">
+      <button class="primary" id="btnPrint">Tipărește / Salvează PDF</button>
+      <button id="btnJson">Export JSON</button>
+      <label class="note">Import JSON <input type="file" id="fileJson" accept="application/json"></label>
+      <button id="btnCsv">Export CSV</button>
+      <span class="status" id="stFisa" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TAB 4 ================= -->
+<section class="tab" id="tab-brev" role="tabpanel">
+  <h2>Breviar</h2>
+  <details open><summary>UMG 104 pe scurt (din manualul producătorului)</summary>
+    <table>
+      <tr><th>Caracteristică</th><th>Valoare</th></tr>
+      <tr><td>Intrări</td><td>4 tensiuni, 4 curenți (prin TC ../1 A sau ../5 A)</td></tr>
+      <tr><td>Tensiune de măsură</td><td>max. 277 V L-N / 480 V L-L; categoria 300 V CAT III</td></tr>
+      <tr><td>Curent</td><td>nominal 5 A, domeniu 0,001–8,5 A; 6 A permanent, 100 A timp de 1 s</td></tr>
+      <tr><td>Eșantionare</td><td>20 kHz pe fază; valori efective calculate pe 200 ms</td></tr>
+      <tr><td>Incertitudini</td><td>tensiune ±0,2 %, curent ±0,25 %, putere ±0,4 % (IEC 61557-12); frecvență ±0,01 Hz</td></tr>
+      <tr><td>Armonici</td><td>ordinele 1–40 pentru U, I, P, Q; Class 1 după IEC 61000-4-7</td></tr>
+      <tr><td>Comunicație</td><td>RS-485 Modbus RTU slave (adresa 1–255, la parametrul 200), RS-232, Profibus opțional</td></tr>
+      <tr><td>Programare din taste</td><td>1 + 2 timp de 1 s: modul PRG; Tasta 1 alege cifra, Tasta 2 o modifică; adresele 000/001 = TC primar/secundar pentru L1–L4</td></tr>
+    </table>
+  </details>
+  <details><summary>Comparația cu clasa A (IEC 61000-4-30)</summary>
+    <table>
+      <tr><th>Aspect</th><th>Clasa A</th><th>UMG 104 (manual)</th></tr>
+      <tr><td>Interval de bază</td><td>10 perioade la 50 Hz, sincronizat cu frecvența</td><td>200 ms</td></tr>
+      <tr><td>Agregări</td><td>150 perioade, 10 min, 2 h, cu marcarea datelor afectate de evenimente</td><td>înregistrări configurate în GridVis (implicit 15 min și 1 h)</td></tr>
+      <tr><td>Tensiune</td><td>±0,1 % din tensiunea declarată</td><td>±0,2 %</td></tr>
+      <tr><td>Frecvență</td><td>±10 mHz</td><td>±0,01 Hz</td></tr>
+      <tr><td>Armonici</td><td>după IEC 61000-4-7, metoda subgrupurilor, fără goluri</td><td>Class 1 după IEC 61000-4-7, ordinele 1–40</td></tr>
+      <tr><td>Flicker, goluri, întreruperi</td><td>obligatorii, cu metode definite</td><td>nu sunt declarate ca măsurări după standard</td></tr>
+      <tr><td>Certificare</td><td>certificat clasa A</td><td>nedeclarat clasa A</td></tr>
+    </table>
+    <p class="note">Valorile clasei A sunt cele uzuale din IEC 61000-4-30; se verifică în ediția în vigoare a standardului. Concluzia didactică: UMG 104 este un analizor de monitorizare potrivit pentru tablouri și sisteme de energie; pentru o evaluare cu valoare contractuală după EN 50160 se folosește un analizor certificat clasa A.</p>
+  </details>
+  <details><summary>Relațiile folosite</summary>
+    <p>Curentul în secundarul TC: I<sub>s</sub> = I<sub>p</sub> · I<sub>sn</sub> / I<sub>pn</sub>. Afișajul: I<sub>afișat</sub> = I<sub>s</sub> · I<sub>p,prog</sub> / I<sub>s,prog</sub>.</p>
+    <p>Valoarea efectivă din eșantioane: U = √( (1/M) Σ u<sub>k</sub>² ), cu M eșantioane în fereastră; la 20 kHz și 50 Hz o perioadă are 400 de eșantioane.</p>
+    <p>Fereastra fixă T pentru u = √2·U·sin(2πft + θ): U<sub>T</sub>² = U² · [1 − (sin(4πfT + 2θ) − sin 2θ) / (4πfT)]. Abaterea dispare când fT este întreg.</p>
+    <p>THD<sub>I</sub> = √(Σ<sub>h≥2</sub> I<sub>h</sub>²) / I<sub>1</sub>. Puterea activă pe fundamentală: P = Σ U<sub>k</sub> I<sub>1k</sub> cos φ<sub>1</sub>.</p>
+    <p>Modbus RTU, funcția 03: [adresă][03][registru Hi][registru Lo][număr Hi][număr Lo][CRC Lo][CRC Hi], CRC-16 cu polinomul 0xA001 și valoarea inițială 0xFFFF.</p>
+  </details>
+  <details><summary>Parametrizarea după N</summary>
+    <p>TC primar din șirul 50, 75, 100, 150, 200, 250, 300 A (după N mod 7); încărcarea între 45 % și 80 % din curentul primar; cos φ1 între 0,80 și 0,96; tensiunea între 225,5 și 234,5 V; frecvența între 49,90 și 50,10 Hz; armonicile 3, 5, 7, 9, 11 ale curentului depind de N; adresa Modbus a aparatului este N.</p>
+  </details>
+  <details><summary>Legătura cu măsurarea reală și bibliografie</summary>
+    <p>Pe tabloul T01 din ConectLab EB104, profesorul arată conexiunile reale, raportul TC folosit, adresa Modbus și traseul datelor până la dashboard. Configurațiile și datele reale ale infrastructurii nu sunt incluse în această aplicație.</p>
+    <ol>
+      <li>Janitza electronics, UMG 104 – Operating manual and technical data, doc. 1.041.015.0.i.</li>
+      <li>IEC 61000-4-30 – Power quality measurement methods.</li>
+      <li>IEC 61000-4-7 – Harmonics and interharmonics measurements and instrumentation.</li>
+      <li>IEC 61557-12 – Performance measuring and monitoring devices (PMD).</li>
+      <li>Modbus Organization, Modbus over Serial Line Specification and Implementation Guide.</li>
+    </ol>
+  </details>
+</section>
+</main>
+
+<footer>Conf.dr.ing. Florin Ciprian Argatu · EMEC, Master SIIM · anul universitar 2026–2027 · versiunea <span id="ftVer"></span> · Aplicația nu transmite note și nu se conectează la aparatul real.</footer>
+
+<script>
+'use strict';
+const VERSION = '1.0';
+const CODE = 'EMEC-L02';
+const N_MIN = 1, N_MAX = 30, N_EXEMPLU = 7;
+const FS = 20000;           // Hz, sampling per phase (manual)
+const WIN = 0.2;            // s, RMS interval (manual)
+const CT_LIST = [50, 75, 100, 150, 200, 250, 300];
+
+// ---------- common block ----------
+const $ = (id) => document.getElementById(id);
+function fmt(v, d) { if (!isFinite(v)) return '–'; return Number(v).toFixed(d).replace('.', ','); }
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function status(id, msg, err) { const el = $(id); if (!el) return; el.textContent = msg; el.classList.toggle('err', !!err); }
+function download(name, content, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function validN(v) {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < N_MIN || n > N_MAX) return { ok: false, msg: 'N trebuie să fie un număr întreg între ' + N_MIN + ' și ' + N_MAX + '.' };
+  return { ok: true, n };
+}
+function r2(x) { return Math.round(x * 100) / 100; }
+
+function variant(N) {
+  const ctP = CT_LIST[N % 7];
+  const load = 0.45 + 0.05 * (N % 8);                 // 0.45 .. 0.80
+  const I1 = r2(ctP * load);
+  const I2 = r2(I1 * (1 - 0.02 * (1 + N % 3)));
+  const I3 = r2(I1 * (1 + 0.015 * (1 + N % 4)));
+  const cos = r2(0.80 + 0.02 * (N % 9));               // 0.80 .. 0.96
+  const U = r2(230 + ((N % 7) - 3) * 1.5);             // 225.5 .. 234.5
+  const f = r2(49.90 + 0.01 * (N % 21));               // 49.90 .. 50.10
+  const h = { 3: 4 + (N % 6), 5: 3 + (N % 5), 7: 2 + (N % 4), 9: 1 + 0.5 * (N % 3), 11: 1 };   // % of fundamental
+  return { N, ctP, ctS: 5, load, I: [I1, I2, I3], cos, U: [U, r2(U - 0.8), r2(U + 0.6)], f, h, addr: N };
+}
+function thdI(v) { let s = 0; for (const k in v.h) s += v.h[k] * v.h[k]; return Math.sqrt(s); }   // %
+function irms(i1, v) { return i1 * Math.sqrt(1 + Math.pow(thdI(v) / 100, 2)); }
+function frame(addr, reg, cnt) {
+  const b = [addr & 255, 3, (reg >> 8) & 255, reg & 255, (cnt >> 8) & 255, cnt & 255];
+  let crc = 0xFFFF;
+  for (const x of b) { crc ^= x; for (let i = 0; i < 8; i++) crc = (crc & 1) ? (crc >> 1) ^ 0xA001 : crc >> 1; }
+  b.push(crc & 255, (crc >> 8) & 255);
+  return b.map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+}
+function winErr(f, theta) {      // relative RMS error (%) of fixed 200 ms window
+  const a = 4 * Math.PI * f * WIN;
+  const ratio2 = 1 - (Math.sin(a + 2 * theta) - Math.sin(2 * theta)) / a;
+  return (Math.sqrt(ratio2) - 1) * 100;
+}
+function winErrMax(f) { let m = 0; for (let i = 0; i <= 720; i++) { m = Math.max(m, Math.abs(winErr(f, i * Math.PI / 720))); } return m; }
+
+// ---------- state ----------
+let V = variant(N_EXEMPLU);
+const FACTORY = { '000': 5, '001': 5, '002': 400, '003': 400, '110': 0, '111': 0, '200': 1, '202': 4, '500': 0 };
+let cfg = Object.assign({}, FACTORY);
+let notes = [];
+let e2rows = [];
+
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.max(10, Math.round(r.width * dpr)); cv.height = Math.max(10, Math.round(r.height * dpr));
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+
+// ---------- device model ----------
+function displayFactor() { return cfg['000'] / cfg['001']; }
+function measured() {
+  const k = displayFactor();
+  const vk = cfg['002'] / cfg['003'];
+  const res = { U: V.U.map(u => u * vk), I: [], P: [], Q: [] };
+  const sinp = Math.sqrt(1 - V.cos * V.cos);
+  for (let p = 0; p < 3; p++) {
+    const is1 = V.I[p] * V.ctS / V.ctP;       // fundamental secondary
+    const isr = irms(is1, V);
+    res.I.push(isr * k);
+    res.P.push(V.U[p] * vk * is1 * k * V.cos);
+    res.Q.push(V.U[p] * vk * is1 * k * sinp);
+  }
+  const U = res.U;
+  const ang = [0, -2 * Math.PI / 3, 2 * Math.PI / 3];
+  const ull = (a, b) => Math.hypot(U[a] * Math.cos(ang[a]) - U[b] * Math.cos(ang[b]), U[a] * Math.sin(ang[a]) - U[b] * Math.sin(ang[b]));
+  res.ULL = [ull(0, 1), ull(1, 2), ull(2, 0)];
+  res.Ptot = res.P[0] + res.P[1] + res.P[2];
+  res.Qtot = res.Q[0] + res.Q[1] + res.Q[2];
+  return res;
+}
+const PAGES = [
+  { name: 'Tensiune', unit: 'V', ph: ['L1-N', 'L2-N', 'L3-N'], val: (m, p) => m.U[p], d: 1 },
+  { name: 'Tensiune', unit: 'V', ph: ['L1-L2', 'L2-L3', 'L3-L1'], val: (m, p) => m.ULL[p], d: 1 },
+  { name: 'Curent', unit: 'A', ph: ['L1', 'L2', 'L3'], val: (m, p) => m.I[p], d: 2 },
+  { name: 'Putere activă', unit: 'kW', ph: ['L1', 'L2', 'L3', 'Σ L1..L3'], val: (m, p) => (p === 3 ? m.Ptot : m.P[p]) / 1000, d: 3 },
+  { name: 'Putere reactivă', unit: 'kvar', ph: ['L1', 'L2', 'L3', 'Σ L1..L3'], val: (m, p) => (p === 3 ? m.Qtot : m.Q[p]) / 1000, d: 3 },
+  { name: 'cos φ', unit: '', ph: ['L1', 'L2', 'L3'], val: () => V.cos, d: 2 },
+  { name: 'Frecvență', unit: 'Hz', ph: ['L1'], val: () => V.f, d: 2 },
+  { name: 'THD I', unit: '%', ph: ['L1', 'L2', 'L3'], val: () => thdI(V), d: 1 },
+];
+let dev = { mode: 'disp', page: 0, ph: 0, addr: '000', buf: '', cur: 0 };
+
+function renderLcd() {
+  if (dev.mode === 'disp') {
+    const pg = PAGES[dev.page]; const p = Math.min(dev.ph, pg.ph.length - 1);
+    const m = measured(); const v = pg.val(m, p);
+    let txt = fmt(v, pg.d).replace(',', '.');
+    if (Math.abs(v) >= 100000) txt = 'EEEE';
+    $('lcdTop').textContent = pg.ph[p];
+    $('lcdMode').textContent = '';
+    $('lcdVal').textContent = txt;
+    $('lcdUnit').textContent = pg.unit;
+    $('lcdName').textContent = pg.name;
+    $('lcdPh').textContent = 'pagina ' + (dev.page + 1) + '/' + PAGES.length;
+    $('keyHelp').textContent = 'Afișare: Tasta 2 schimbă mărimea, Tasta 1 schimbă faza. 1 + 2 intră în modul de programare.';
+  } else {
+    const digits = (dev.addr + dev.buf).split('');
+    const html = digits.map((c, i) => i === dev.cur ? '<span class="cur">' + c + '</span>' : c);
+    const a = html.slice(0, 3).join(''); const c = html.slice(3).join('');
+    $('lcdTop').textContent = 'Adresă';
+    $('lcdMode').textContent = 'PRG';
+    $('lcdVal').innerHTML = '<span style="font-size:1.4rem;margin-right:1rem">' + a + '</span>' + c;
+    $('lcdUnit').textContent = '';
+    $('lcdName').textContent = (dev.addr in FACTORY) ? PARAM_NAMES[dev.addr] : 'adresă nefolosită în simulare';
+    $('lcdPh').textContent = 'Conținut';
+    $('keyHelp').textContent = 'Programare: Tasta 1 mută cursorul pe cifra următoare (întâi adresa, apoi conținutul), Tasta 2 mărește cifra. 1 + 2 salvează și revine la afișare.';
+  }
+}
+const PARAM_NAMES = { '000': 'TC primar L1..L4 (A)', '001': 'TC secundar L1..L4 (A)', '002': 'TT primar (V)', '003': 'TT secundar (V)', '110': 'schema curent (0 = 3 TC)', '111': 'schema tensiune (0 = 4 conductoare)', '200': 'adresa Modbus', '202': 'viteza RS-485 (4 = 115200)', '500': 'parola afișaj' };
+function loadBuf() { dev.buf = String(dev.addr in cfg ? cfg[dev.addr] : 0).padStart(6, '0').slice(-6); }
+function key1() {
+  if (dev.mode === 'disp') { dev.ph = (dev.ph + 1) % PAGES[dev.page].ph.length; }
+  else { dev.cur = (dev.cur + 1) % 9; }
+  renderLcd();
+}
+function key2() {
+  if (dev.mode === 'disp') { dev.page = (dev.page + 1) % PAGES.length; dev.ph = Math.min(dev.ph, PAGES[dev.page].ph.length - 1); }
+  else {
+    const d = (dev.addr + dev.buf).split('');
+    d[dev.cur] = String((Number(d[dev.cur]) + 1) % 10);
+    const prevAddr = dev.addr;
+    dev.addr = d.slice(0, 3).join(''); dev.buf = d.slice(3).join('');
+    if (dev.cur < 3 && dev.addr !== prevAddr) { storeBuf(prevAddr, null); loadBuf(); }
+  }
+  renderLcd();
+}
+function storeBuf(addr, buf) {
+  const b = buf === null ? dev.buf : buf;
+  if (!(addr in FACTORY)) return;
+  let v = parseInt(b, 10);
+  if (addr === '001' && (v < 1 || v > 5)) v = cfg['001'];
+  if (addr === '003' && (v < 1 || v > 999)) v = cfg['003'];
+  if ((addr === '000' || addr === '002') && v < 1) v = cfg[addr];
+  if (addr === '200' && (v < 1 || v > 255)) v = cfg['200'];
+  cfg[addr] = v;
+}
+function key12() {
+  if (dev.mode === 'disp') { dev.mode = 'prg'; dev.addr = '000'; dev.cur = 3; loadBuf(); }
+  else { storeBuf(dev.addr, null); dev.mode = 'disp'; renderCfg(); updateAll(); }
+  renderLcd();
+}
+function renderCfg() {
+  const rows = ['000', '001', '002', '003', '200', '202'].map(a => '<tr><td>' + a + '</td><td>' + esc(PARAM_NAMES[a]) + '</td><td class="num">' + cfg[a] + '</td></tr>');
+  $('cfgTable').innerHTML = '<tr><th>Adresă</th><th>Parametru</th><th class="num">Valoare</th></tr>' + rows.join('');
+}
+
+// ---------- experiments ----------
+let playing = false, tSim = 0, lastTs = null;
+function drawWave() {
+  const cv = $('cvWave'); const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const zoom = $('showSamples').checked;
+  const span = zoom ? 0.001 : 0.04;                // s shown
+  const t0 = tSim;
+  const Upk = Math.SQRT2 * V.U[0];
+  const is1 = V.I[0] * V.ctS / V.ctP;
+  const phi = Math.acos(V.cos);
+  const iAt = (t) => { let s = Math.SQRT2 * is1 * Math.sin(2 * Math.PI * V.f * t - phi); for (const k in V.h) s += Math.SQRT2 * is1 * V.h[k] / 100 * Math.sin(2 * Math.PI * V.f * k * t - k * phi); return s; };
+  const uAt = (t) => Upk * Math.sin(2 * Math.PI * V.f * t);
+  const pad = 42; const mid = h / 2;
+  ctx.strokeStyle = '#c9d3dd'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, mid); ctx.lineTo(w - 8, mid); ctx.moveTo(pad, 8); ctx.lineTo(pad, h - 20); ctx.stroke();
+  ctx.fillStyle = '#556274'; ctx.font = '12px sans-serif';
+  ctx.fillText('t (ms)', w - 50, h - 6);
+  for (let k = 0; k <= 4; k++) { const x = pad + (w - pad - 8) * k / 4; ctx.fillText(fmt((t0 + span * k / 4) * 1000 % 1000, zoom ? 2 : 0), x - 10, h - 6); }
+  ctx.fillText(fmt(Upk, 0) + ' V', 2, 16); ctx.fillStyle = '#007f86'; ctx.fillText(fmt(Math.SQRT2 * irms(is1, V), 2) + ' A', 2, 30);
+  const xs = (t) => pad + (w - pad - 8) * (t - t0) / span;
+  const imax = Math.SQRT2 * is1 * (1 + thdI(V) / 100 * 1.6);
+  const plot = (fn, scale, color) => { ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); const n = 600; for (let j = 0; j <= n; j++) { const t = t0 + span * j / n; const y = mid - fn(t) / scale * (h / 2 - 18); j ? ctx.lineTo(xs(t), y) : ctx.moveTo(xs(t), y); } ctx.stroke(); };
+  plot(uAt, Upk * 1.05, '#c62828');
+  plot(iAt, imax, '#007f86');
+  if (zoom) {
+    ctx.fillStyle = '#142d4e';
+    const first = Math.ceil(t0 * FS);
+    for (let k = first; k / FS <= t0 + span; k++) { const t = k / FS; ctx.beginPath(); ctx.arc(xs(t), mid - uAt(t) / (Upk * 1.05) * (h / 2 - 18), 3, 0, 2 * Math.PI); ctx.fill(); }
+  }
+  // numeric RMS from samples over 200 ms
+  let su = 0, si = 0; const M = Math.round(WIN * FS);
+  for (let k = 0; k < M; k++) { const t = k / FS; su += uAt(t) ** 2; si += iAt(t) ** 2; }
+  const Urms = Math.sqrt(su / M), Irms = Math.sqrt(si / M);
+  $('e1Read').textContent = 'Din ' + M + ' eșantioane (200 ms la 20 kHz): U L1 = ' + fmt(Urms, 2) + ' V, i în secundar = ' + fmt(Irms, 3) + ' A. Pe afișaj, cu raportul programat ' + cfg['000'] + '/' + cfg['001'] + ' A: I L1 = ' + fmt(Irms * displayFactor(), 2) + ' A.';
+  $('spp').textContent = String(Math.round(FS / V.f));
+}
+function tick(ts) {
+  if (!playing) { lastTs = null; return; }
+  if (lastTs !== null) tSim += (ts - lastTs) / 1000 * Number($('speed').value) * 0.1;
+  lastTs = ts; drawWave(); requestAnimationFrame(tick);
+}
+function drawWin() {
+  const f = Number($('fSl').value); $('fVal').textContent = fmt(f, 2);
+  const cv = $('cvWin'); const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 52, maxE = Math.max(0.15, winErrMax(f) * 1.2);
+  const mid = h / 2; const ys = (e) => mid - e / maxE * (h / 2 - 18);
+  ctx.strokeStyle = '#c9d3dd'; ctx.beginPath(); ctx.moveTo(pad, mid); ctx.lineTo(w - 8, mid); ctx.moveTo(pad, 8); ctx.lineTo(pad, h - 20); ctx.stroke();
+  ctx.fillStyle = '#556274'; ctx.font = '12px sans-serif';
+  ctx.fillText('+' + fmt(maxE, 2) + ' %', 2, 16); ctx.fillText('−' + fmt(maxE, 2) + ' %', 2, h - 22);
+  ctx.fillText('faza de start a ferestrei θ (0 … 180°)', w / 2 - 100, h - 4);
+  ctx.setLineDash([5, 4]); ctx.strokeStyle = '#8a96a3';
+  [0.1, -0.1].forEach(e => { ctx.beginPath(); ctx.moveTo(pad, ys(e)); ctx.lineTo(w - 8, ys(e)); ctx.stroke(); });
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#1d6b3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad, ys(0)); ctx.lineTo(w - 8, ys(0)); ctx.stroke();
+  ctx.strokeStyle = '#a23b00'; ctx.beginPath();
+  for (let i = 0; i <= 360; i++) { const th = i * Math.PI / 360; const x = pad + (w - pad - 8) * i / 360; const y = ys(winErr(f, th)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.lineWidth = 1;
+  const cyc = f * WIN;
+  $('e3Read').textContent = 'La ' + fmt(f, 2) + ' Hz, 200 ms conțin ' + fmt(cyc, 2) + ' perioade. Abaterea maximă a valorii efective cu fereastra fixă: ' + fmt(winErrMax(f), 3) + ' %. Fereastra de 10 perioade sincronizate durează ' + fmt(10 / f * 1000, 2) + ' ms și nu are această abatere.';
+}
+function drawSpec() {
+  const cv = $('cvSpec'); const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 46, base = h - 26, top = 26;
+  ctx.strokeStyle = '#c9d3dd'; ctx.beginPath(); ctx.moveTo(pad, base); ctx.lineTo(w - 8, base); ctx.moveTo(pad, top); ctx.lineTo(pad, base); ctx.stroke();
+  ctx.fillStyle = '#556274'; ctx.font = '12px sans-serif';
+  ctx.fillText('Ih / I1 (%)', pad + 6, 14); ctx.fillText('ordinul armonicii h', w / 2 - 50, h - 4);
+  const bw = (w - pad - 12) / 40;
+  const logy = (p) => base - (Math.log10(p) + 1) / 3 * (base - top);   // 0.1 % .. 100 %
+  [0.1, 1, 10, 100].forEach(p => { const y = logy(p); ctx.fillText(String(p).replace('.', ','), 8, y + 4); ctx.strokeStyle = '#edf1f4'; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - 8, y); ctx.stroke(); });
+  for (let k = 1; k <= 40; k++) {
+    const p = k === 1 ? 100 : (V.h[k] || 0); const x = pad + 4 + (k - 1) * bw;
+    if (k % 5 === 0 || k === 1) { ctx.fillStyle = '#556274'; ctx.fillText(String(k), x, base + 13); }
+    if (p > 0) { ctx.fillStyle = k === 1 ? '#142d4e' : '#007f86'; const y = logy(p); ctx.fillRect(x, y, Math.max(2, bw - 3), base - y); }
+  }
+  const parts = Object.keys(V.h).map(k => 'I' + k + ' = ' + fmt(V.h[k], 1) + ' %').join(', ');
+  $('e4Read').textContent = 'Spectrul variantei: ' + parts + ' din I1. THD I = ' + fmt(thdI(V), 2) + ' %. O perioadă la ' + fmt(V.f, 2) + ' Hz are ' + Math.round(FS / V.f) + ' eșantioane; armonica 40 are ' + fmt(40 * V.f, 0) + ' Hz, sub frecvența Nyquist de 10 000 Hz.';
+}
+function drawFrame() {
+  const a = Number($('mbAddr').value), r = Number($('mbReg').value), c = Number($('mbCnt').value);
+  if (!Number.isInteger(a) || a < 1 || a > 247 || !Number.isInteger(r) || r < 0 || r > 65535 || !Number.isInteger(c) || c < 1 || c > 125) {
+    $('mbFrame').textContent = 'Date invalide: adresa 1–247, registrul 0–65535, numărul 1–125.'; return;
+  }
+  const fr = frame(a, r, c);
+  $('mbFrame').textContent = fr;
+  $('svgAddr').textContent = 'adresa ' + cfg['200'];
+  $('e5Read').textContent = (a === cfg['200'] ? 'Adresa din cerere este cea programată în aparat (' + cfg['200'] + '): aparatul răspunde.' : 'Atenție: aparatul are programată adresa ' + cfg['200'] + ' (parametrul 200). La adresa ' + a + ' nu răspunde. Programează adresa 200 = N.');
+}
+function updateE2() {
+  const m = measured();
+  const ok = cfg['000'] === V.ctP && cfg['001'] === V.ctS;
+  $('e2Hint').textContent = ok ? 'Raportul programat corespunde TC-ului variantei: afișajul arată curentul din conductor.' : 'Raportul programat (' + cfg['000'] + '/' + cfg['001'] + ' A) diferă de TC-ul variantei (' + V.ctP + '/5 A).';
+  return m;
+}
+function updateAll() {
+  renderLcd(); renderCfg(); drawWave(); drawWin(); drawSpec(); drawFrame(); updateE2(); fillFisa();
+  $('svgIp').textContent = 'Ip = ' + fmt(V.I[0], 2) + ' A';
+  $('svgCt').textContent = V.ctP + ' / 5 A';
+  $('svgIs').textContent = 'Is = ' + fmt(irms(V.I[0] * 5 / V.ctP, V), 3) + ' A';
+  $('svgDisp').textContent = fmt(measured().I[0], 2) + ' A';
+}
+
+// ---------- variant ----------
+function applyN(n) {
+  V = variant(n); cfg = Object.assign({}, FACTORY); dev = { mode: 'disp', page: 0, ph: 0, addr: '000', buf: '', cur: 0 }; e2rows = [];
+  $('nIn').value = n;
+  $('vCode').textContent = CODE + '-N' + String(n).padStart(2, '0') + '-v' + VERSION;
+  $('vData').textContent = 'TC ' + V.ctP + '/5 A · Ip = ' + fmt(V.I[0], 2) + ' / ' + fmt(V.I[1], 2) + ' / ' + fmt(V.I[2], 2) + ' A · U = ' + fmt(V.U[0], 1) + ' / ' + fmt(V.U[1], 1) + ' / ' + fmt(V.U[2], 1) + ' V · cos φ1 = ' + fmt(V.cos, 2) + ' · f = ' + fmt(V.f, 2) + ' Hz · adresa Modbus = ' + V.addr;
+  $('mbAddr').value = V.addr; $('fSl').value = V.f;
+  status('stVar', 'Varianta N = ' + n + ' aplicată. Aparatul a revenit la setările din fabrică.');
+  updateAll(); saveLocal();
+}
+function fillFisa() {
+  $('fN').textContent = V.N; $('fCode').textContent = $('vCode').textContent;
+  $('fData').innerHTML = '<tr><th>Mărime</th><th class="num">L1</th><th class="num">L2</th><th class="num">L3</th></tr>' +
+    '<tr><td>Curent primar Ip (A)</td>' + V.I.map(x => '<td class="num">' + fmt(x, 2) + '</td>').join('') + '</tr>' +
+    '<tr><td>Tensiune U L-N (V)</td>' + V.U.map(x => '<td class="num">' + fmt(x, 1) + '</td>').join('') + '</tr>' +
+    '<tr><td>TC</td><td class="num" colspan="3">' + V.ctP + ' / 5 A</td></tr>' +
+    '<tr><td>cos φ1 · f · adresa Modbus</td><td class="num" colspan="3">' + fmt(V.cos, 2) + ' · ' + fmt(V.f, 2) + ' Hz · ' + V.addr + '</td></tr>' +
+    '<tr><td>Armonici curent (% din I1)</td><td class="num" colspan="3">' + Object.keys(V.h).map(k => 'h' + k + ': ' + fmt(V.h[k], 1)).join(' · ') + '</td></tr>';
+  const nl = notes.map(n => '<tr><td>' + esc(n.exp) + '</td><td>' + esc(n.text) + '</td><td>' + esc(n.time) + '</td></tr>').join('');
+  $('fNotes').innerHTML = '<tr><th>Experiment</th><th>Ce s-a notat</th><th>Ora</th></tr>' + (nl || '<tr><td colspan="3" class="note">Nimic notat încă. Folosește butoanele „Notează cazul în fișă” din banc.</td></tr>');
+  const get = (e) => notes.filter(n => n.exp === e).slice(-1)[0];
+  $('mIs').textContent = get('E1') ? fmt(get('E1').Is, 3) : '';
+  $('mIf').textContent = get('E2f') ? fmt(get('E2f').I, 2) : '';
+  $('m000').textContent = get('E2p') ? String(get('E2p').p000) : '';
+  $('mP').textContent = get('E2p') ? fmt(get('E2p').P, 3) : '';
+  $('mWin').textContent = get('E3') ? fmt(get('E3').err, 3) : '';
+  $('mThd').textContent = get('E4') ? fmt(get('E4').thd, 2) : '';
+  $('mFrame').textContent = get('E5') ? get('E5').frame : '';
+}
+function addNote(n, st) { n.time = new Date().toLocaleTimeString('ro-RO'); notes.push(n); fillFisa(); saveLocal(); status(st, 'Notat în fișă.'); }
+
+// ---------- storage / export ----------
+const LSKEY = CODE + '-' + VERSION;
+function collect() {
+  return { code: CODE, version: VERSION, N: V.N, name: $('fName').value, group: $('fGroup').value, calc: ['cIs', 'cIf', 'c000', 'cP', 'cWin', 'cThd', 'cFrame'].reduce((o, k) => (o[k] = $(k).value, o), {}), concl: $('fConcl').value, notes };
+}
+function saveLocal() { try { localStorage.setItem(LSKEY, JSON.stringify(collect())); } catch (e) { status('stFisa', 'Salvarea automată nu merge în acest browser: folosește Export JSON.', true); } }
+function restore(d) {
+  if (!d || d.code !== CODE || d.version !== VERSION || !validN(d.N).ok || !Array.isArray(d.notes)) throw new Error('fișier străin');
+  applyN(d.N); notes = d.notes.filter(n => n && typeof n.exp === 'string' && typeof n.text === 'string');
+  $('fName').value = String(d.name || ''); $('fGroup').value = String(d.group || ''); $('fConcl').value = String(d.concl || '');
+  if (d.calc) for (const k in d.calc) if ($(k)) $(k).value = String(d.calc[k]);
+  fillFisa();
+}
+function restoreLocal() { try { const s = localStorage.getItem(LSKEY); if (s) { restore(JSON.parse(s)); return true; } } catch (e) { } return false; }
+function toCSV() {
+  const now = new Date().toISOString();
+  const rows = [['CODE', 'VERSION', 'N', 'data_ora', 'experiment', 'notat', 'ora']];
+  notes.forEach(n => rows.push([CODE, VERSION, V.N, now, n.exp, n.text, n.time]));
+  return rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\n');
+}
+
+// ---------- events ----------
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', 'false'));
+  b.setAttribute('aria-selected', 'true');
+  document.querySelectorAll('section.tab').forEach(s => s.classList.remove('active'));
+  $(b.dataset.tab).classList.add('active'); updateAll();
+}));
+document.querySelectorAll('.exps button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.exps button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  b.setAttribute('aria-pressed', 'true');
+  document.querySelectorAll('.expbody').forEach(s => s.classList.remove('active'));
+  $(b.dataset.exp).classList.add('active'); updateAll();
+}));
+$('btnApply').addEventListener('click', () => { const r = validN($('nIn').value); if (!r.ok) { status('stVar', r.msg, true); return; } applyN(r.n); });
+$('btnEx').addEventListener('click', () => applyN(N_EXEMPLU));
+$('btnBoard').addEventListener('click', (e) => { const on = document.documentElement.classList.toggle('board'); e.target.setAttribute('aria-pressed', on); e.target.textContent = on ? 'Dimensiune normală' : 'Mărește pentru tablă'; updateAll(); });
+$('key1').addEventListener('click', key1); $('key2').addEventListener('click', key2); $('key12').addEventListener('click', key12);
+$('btnFactory').addEventListener('click', () => { cfg = Object.assign({}, FACTORY); dev.mode = 'disp'; updateAll(); });
+$('btnPlay').addEventListener('click', () => { if (!playing) { playing = true; requestAnimationFrame(tick); } });
+$('btnPause').addEventListener('click', () => { playing = false; });
+$('btnReset').addEventListener('click', () => { tSim = 0; drawWave(); });
+$('showSamples').addEventListener('change', drawWave);
+$('fSl').addEventListener('input', drawWin);
+$('fVar').addEventListener('click', () => { $('fSl').value = V.f; drawWin(); });
+['mbAddr', 'mbReg', 'mbCnt'].forEach(id => $(id).addEventListener('input', drawFrame));
+$('note1').addEventListener('click', () => { const Is = irms(V.I[0] * 5 / V.ctP, V); addNote({ exp: 'E1', Is, text: 'I secundar L1 = ' + fmt(Is, 3) + ' A; afișaj cu ' + cfg['000'] + '/' + cfg['001'] + ' A: ' + fmt(measured().I[0], 2) + ' A' }, 'st1'); });
+$('note2').addEventListener('click', () => {
+  const m = measured(); const factory = cfg['000'] === 5 && cfg['001'] === 5;
+  const n = { exp: factory ? 'E2f' : 'E2p', I: m.I[0], P: m.Ptot / 1000, p000: cfg['000'], text: 'Setare ' + cfg['000'] + '/' + cfg['001'] + ' A: I L1 = ' + fmt(m.I[0], 2) + ' A, P total = ' + fmt(m.Ptot / 1000, 3) + ' kW' };
+  e2rows.push(n); $('e2Table').innerHTML = '<tr><th>Setare</th><th class="num">I L1 afișat (A)</th><th class="num">P total afișat (kW)</th></tr>' + e2rows.map(r => '<tr><td>' + r.p000 + ' / ' + cfg['001'] + ' A</td><td class="num">' + fmt(r.I, 2) + '</td><td class="num">' + fmt(r.P, 3) + '</td></tr>').join('');
+  addNote(n, 'st2');
+});
+$('note3').addEventListener('click', () => { const f = Number($('fSl').value); const err = winErrMax(f); addNote({ exp: 'E3', err, text: 'f = ' + fmt(f, 2) + ' Hz: abatere maximă ' + fmt(err, 3) + ' % (fereastră 200 ms)' }, 'st3'); });
+$('note4').addEventListener('click', () => { addNote({ exp: 'E4', thd: thdI(V), text: 'THD I L1 = ' + fmt(thdI(V), 2) + ' %' }, 'st4'); });
+$('note5').addEventListener('click', () => { const fr = $('mbFrame').textContent; addNote({ exp: 'E5', frame: fr, text: 'Cadru: ' + fr }, 'st5'); });
+['fName', 'fGroup', 'fConcl', 'cIs', 'cIf', 'c000', 'cP', 'cWin', 'cThd', 'cFrame'].forEach(id => $(id).addEventListener('input', saveLocal));
+$('btnPrint').addEventListener('click', () => window.print());
+$('btnJson').addEventListener('click', () => download('EMEC_L02_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.json', JSON.stringify(collect(), null, 2), 'application/json'));
+$('btnCsv').addEventListener('click', () => download('EMEC_L02_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.csv', toCSV(), 'text/csv'));
+$('fileJson').addEventListener('change', (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { try { restore(JSON.parse(rd.result)); status('stFisa', 'Fișa a fost încărcată.'); } catch (err) { status('stFisa', 'Fișierul nu este o fișă EMEC L02 v' + VERSION + ' și a fost respins.', true); } };
+  rd.readAsText(f);
+});
+window.addEventListener('resize', () => updateAll());
+
+$('ftVer').textContent = VERSION;
+if (!restoreLocal()) applyN(N_EXEMPLU);
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) { /* animation starts on Play */ }
+</script>
+</body>
+</html>

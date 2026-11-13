@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMEC · L03 · Calibrarea analizorului și incertitudinea</title>
+<style>
+  :root {
+    --navy: #142d4e;
+    --teal: #007f86;
+    --paper: #f3f6f8;
+    --panel: #ffffff;
+    --ink: #172231;
+    --muted: #556274;
+    --line: #c9d3dd;
+    --lcd: #c4d3bd;
+    --lcd-ink: #1c2a19;
+    --l1: #c62828;
+    --l2: #b07a00;
+    --l3: #1f5fbf;
+    --ln: #7b3fa0;
+    --warn: #a23b00;
+    --ok: #1d6b3a;
+    --focus: #ffbf47;
+    --font-ui: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-head: "Bahnschrift", "DIN Alternate", "Segoe UI Semibold", "Arial Narrow", sans-serif;
+    --font-lcd: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; }
+  html.board { font-size: 20px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header.top { background: var(--navy); color: #fff; padding: 1rem 1.5rem 0.9rem; }
+  header.top .course { font-size: 0.9rem; opacity: 0.85; margin: 0; }
+  header.top h1 { font-family: var(--font-head); font-weight: 600; font-size: 1.9rem; margin: 0.1rem 0 0; letter-spacing: 0.01em; }
+  header.top .sub { margin: 0.2rem 0 0; font-size: 0.95rem; opacity: 0.9; }
+  .variant { background: #e4eef0; border-bottom: 1px solid var(--line); padding: 0.7rem 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; }
+  .variant label { font-weight: 600; }
+  .variant input[type=number] { width: 4.5rem; font-size: 1rem; padding: 0.3rem; }
+  .variant .code { font-family: var(--font-lcd); background: #fff; padding: 0.2rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; }
+  .variant .data { flex-basis: 100%; font-size: 0.95rem; color: var(--muted); }
+  button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--teal); background: #fff; color: var(--teal); cursor: pointer; min-height: 2.4rem; }
+  button.primary { background: var(--teal); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  nav.tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--paper); border-bottom: 2px solid var(--navy); flex-wrap: wrap; }
+  nav.tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--navy); padding: 0.7rem 1.1rem; font-weight: 600; }
+  nav.tabs button[aria-selected=true] { background: var(--navy); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 1.2rem 1.5rem 2rem; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  h2 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.45rem; margin: 0.4rem 0 0.8rem; }
+  h3 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.15rem; margin: 1.2rem 0 0.5rem; }
+  p, li { max-width: 78ch; }
+  .grid2 { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 1.4rem; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { border: 1px solid var(--line); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+  th { background: #e8edf2; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.92rem; }
+  .status { min-height: 1.4rem; font-size: 0.95rem; color: var(--ok); }
+  .status.err { color: var(--warn); }
+
+  /* ---------- virtual analyser ---------- */
+  .device { background: linear-gradient(#e9ecee, #d5dade); border: 2px solid #8b96a1; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 0 #9aa4ae; }
+  .device .terms { display: flex; justify-content: space-between; font-family: var(--font-lcd); font-size: 0.72rem; color: #3e4955; margin-bottom: 0.5rem; }
+  .device .terms span { background: #2b3440; color: #dfe6ec; padding: 0.1rem 0.35rem; border-radius: 3px; }
+  .device .name { font-family: var(--font-head); font-weight: 600; color: #2b3440; margin: 0.2rem 0 0.6rem; font-size: 1rem; }
+  .lcd { background: var(--lcd); color: var(--lcd-ink); border: 3px solid #5f6a62; border-radius: 6px; padding: 0.6rem 0.8rem; font-family: var(--font-lcd); min-height: 7.6rem; position: relative; }
+  .lcd .row1 { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .lcd .big { font-size: 2.6rem; text-align: right; letter-spacing: 0.04em; line-height: 1.2; margin-top: 0.2rem; }
+  .lcd .unit { font-size: 1.2rem; margin-left: 0.3rem; }
+  .lcd .row3 { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.1rem; }
+  .lcd .cur { text-decoration: underline; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .lcd .cur { animation: none; } }
+  .keys { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .keys button { flex: 1; min-height: 3rem; background: #2b3440; color: #fff; border-color: #2b3440; font-weight: 600; }
+  .keys button.both { background: #4a5663; }
+  .keyhelp { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+
+  .exps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+  .exps button[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .expbody { display: none; }
+  .expbody.active { display: block; }
+  canvas { width: 100%; height: 260px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin: 0.6rem 0; }
+  .ctrl label { font-size: 0.95rem; }
+  .ctrl input[type=range] { width: 200px; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin: 0.4rem 0; }
+  .legend i { display: inline-block; width: 1.4rem; height: 0.25rem; vertical-align: middle; margin-right: 0.3rem; }
+  .readout { font-variant-numeric: tabular-nums; }
+  svg text { font-family: var(--font-ui); }
+  .frame { font-family: var(--font-lcd); font-size: 1.15rem; background: #0f1d2c; color: #d8f3f2; padding: 0.6rem 0.8rem; border-radius: 6px; word-break: break-all; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+  input.f { width: 7rem; font: inherit; padding: 0.2rem 0.3rem; }
+  textarea { width: 100%; min-height: 5rem; font: inherit; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem; border-top: 1px solid var(--line); }
+  @media (max-width: 700px) {
+    .grid2 { grid-template-columns: 1fr; }
+    header.top h1 { font-size: 1.45rem; }
+    .lcd .big { font-size: 2rem; }
+  }
+  @media print {
+    .noprint, nav.tabs, header.top, .variant { display: none !important; }
+    section.tab { display: none !important; }
+    #tab-fisa { display: block !important; }
+    body { background: #fff; }
+    .card { border: none; }
+  }
+  select { font: inherit; padding: 0.3rem; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="course">EMEC · Echipamente și metode de evaluare a calității energiei electrice · Master SIIM, anul 2</p>
+  <h1>L03 · Calibrarea analizorului și incertitudinea de măsurare</h1>
+  <p class="sub">Verificarea UMG 104 prin comparație cu un etalon · bugetul de incertitudine după GUM · Conf.dr.ing. Florin Ciprian Argatu</p>
+</header>
+
+<div class="variant noprint" aria-label="Varianta individuală">
+  <label for="nIn">Numărul tău N (1–30)</label>
+  <input id="nIn" type="number" min="1" max="30" step="1" value="7">
+  <button class="primary" id="btnApply">Aplică varianta N</button>
+  <button id="btnEx">Exemplul N = 7</button>
+  <span>Cod variantă: <span class="code" id="vCode">–</span></span>
+  <button id="btnBoard" aria-pressed="false">Mărește pentru tablă</button>
+  <div class="data" id="vData"></div>
+  <div class="status" id="stVar" role="status"></div>
+</div>
+
+<nav class="tabs noprint" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="tab-start">1 · Începe aici</button>
+  <button role="tab" aria-selected="false" data-tab="tab-banc">2 · Banc virtual</button>
+  <button role="tab" aria-selected="false" data-tab="tab-fisa">3 · Fișa studentului</button>
+  <button role="tab" aria-selected="false" data-tab="tab-brev">4 · Breviar</button>
+</nav>
+
+<main>
+<section class="tab active" id="tab-start" role="tabpanel">
+  <h2>Ce investighezi</h2>
+  <p>Un analizor de rețea este util doar dacă știi cât de mult te poți baza pe valorile lui. Calibrarea compară indicațiile aparatului cu valori de referință cunoscute, date de un etalon, și stabilește eroarea în fiecare punct și incertitudinea cu care a fost determinată. Apoi decizi dacă aparatul se încadrează în toleranța declarată de producător.</p>
+  <p>La L03 calibrezi un UMG 104 virtual, cu erorile proprii variantei tale N, în puncte de tensiune, curent și putere. Faci câte 10 citiri pe punct, construiești bugetul de incertitudine, calculezi incertitudinea extinsă și scrii un certificat de calibrare.</p>
+  <h3>Parcursul în 4 ore (două ședințe)</h3>
+  <table>
+    <tr><th>Ședința</th><th>Activitate</th></tr>
+    <tr><td>1 · 0–30 min</td><td>Demonstrația profesorului: schema de verificare prin comparație, etalonul disponibil în laborator, certificatul lui de calibrare.</td></tr>
+    <tr><td>1 · 30–110 min</td><td>Experimentul 1 · Tensiunea: 4 puncte, câte 10 citiri, eroare și bugetul de incertitudine pentru punctul de 230 V.</td></tr>
+    <tr><td>2 · 0–50 min</td><td>Experimentul 2 · Curentul și Experimentul 3 · Puterea activă la cos φ = 1 și 0,5.</td></tr>
+    <tr><td>2 · 50–90 min</td><td>Experimentul 4 · Decizia de conformitate și curba de erori.</td></tr>
+    <tr><td>2 · 90–120 min</td><td>Certificatul de calibrare și concluziile.</td></tr>
+  </table>
+  <h3>Ce predai</h3>
+  <p>Fișa din fila 3, exportată ca PDF, cu N și codul variantei, tabelele de citiri, bugetul de incertitudine calculat de tine pentru punctul de 230 V, capturile C1–C3, certificatul și concluziile. Numele fișierului: <span style="font-family:var(--font-lcd)">EMEC_L03_Nxx_Nume_Prenume.pdf</span>.</p>
+  <h3>Ipotezele modelului</h3>
+  <ul>
+    <li>Toleranțele aparatului sunt cele din manualul UMG 104: tensiune ±0,2 %, curent ±0,25 %, putere ±0,4 %, interpretate aici ca procente din valoarea citită.</li>
+    <li>Erorile proprii ale aparatului virtual (de câștig, de offset și dispersia citirilor) sunt sintetice și depind de N. Citirile se generează determinist: același N dă mereu aceleași citiri.</li>
+    <li>Incertitudinea etalonului se introduce din certificatul lui de calibrare. Valoarea inițială, 0,05 % cu k = 2, este doar un exemplu didactic, nu caracteristica unui etalon anume.</li>
+    <li>Curenții sunt valori din secundarul TC (intrarea de 5 A a aparatului), cu raportul 5 A / 5 A.</li>
+  </ul>
+</section>
+
+<section class="tab" id="tab-banc" role="tabpanel">
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <h3 style="margin-top:0">Schema de verificare prin comparație</h3>
+        <svg viewBox="0 0 420 210" width="100%" role="img" aria-label="Etalon conectat la aparatul verificat">
+          <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#142d4e"/></marker></defs>
+          <g font-size="13" text-anchor="middle">
+            <rect x="10" y="20" width="150" height="80" rx="6" fill="#e4eef0" stroke="#007f86"/>
+            <text x="85" y="48">Etalon / calibrator</text><text x="85" y="68">valoare de referință</text><text x="85" y="86" id="svgRef">x_ref</text>
+            <rect x="260" y="20" width="150" height="80" rx="6" fill="#fff" stroke="#142d4e"/>
+            <text x="335" y="48">UMG 104 verificat</text><text x="335" y="68">indicație</text><text x="335" y="86" id="svgInd">x_ind</text>
+            <line x1="160" y1="45" x2="258" y2="45" stroke="#c62828" stroke-width="2" marker-end="url(#ar)"/><text x="209" y="38" font-size="11">U</text>
+            <line x1="160" y1="75" x2="258" y2="75" stroke="#007f86" stroke-width="2" marker-end="url(#ar)"/><text x="209" y="92" font-size="11">I</text>
+            <rect x="110" y="135" width="200" height="56" rx="6" fill="#fff" stroke="#8a96a3"/>
+            <text x="210" y="158">Eroarea E = x̄_ind − x_ref</text><text x="210" y="178">± U (k = 2)</text>
+            <line x1="85" y1="100" x2="150" y2="135" stroke="#8a96a3"/><line x1="335" y1="100" x2="270" y2="135" stroke="#8a96a3"/>
+          </g>
+        </svg>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h3 style="margin-top:0">Datele etalonului (din certificatul lui)</h3>
+        <div class="ctrl">
+          <label>Incertitudinea extinsă a etalonului U_ref (%) <input class="f" id="uRef" type="number" min="0.001" max="1" step="0.001" value="0.05"></label>
+          <label>factor de acoperire k_ref <input class="f" id="kRef" type="number" min="1" max="3" step="0.01" value="2"></label>
+        </div>
+        <p class="note">Valoarea inițială este un exemplu didactic. Înlocuiește-o cu valoarea din certificatul etalonului folosit în laborator.</p>
+        <h3>Rezoluția citirii</h3>
+        <p class="note">Afișajul UMG 104: tensiune 0,01 V; curent 10 mA (0,01 A); putere în kW cu 3 zecimale (1 W). La curenți mici, rezoluția afișajului domină bugetul de incertitudine.</p>
+        <label><input type="checkbox" id="sw"> Citire prin software (GridVis / Modbus), rezoluție 0,001 V, 0,1 mA, 0,1 W (ipoteză didactică)</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="exps noprint" role="group" aria-label="Experimente">
+        <button data-exp="U" aria-pressed="true">Experiment 1 · Tensiune</button>
+        <button data-exp="I" aria-pressed="false">Experiment 2 · Curent</button>
+        <button data-exp="P" aria-pressed="false">Experiment 3 · Putere</button>
+        <button data-exp="D" aria-pressed="false">Experiment 4 · Conformitate</button>
+      </div>
+
+      <div class="card" id="expCard">
+        <h3 style="margin-top:0" id="expTitle">Experiment 1 · Tensiune</h3>
+        <div class="ctrl">
+          <label>Punctul de verificare <select id="ptSel"></select></label>
+          <button class="primary noprint" id="btnPlay">Play achiziție</button>
+          <button class="noprint" id="btnPause">Pauză</button>
+          <button class="noprint" id="btnReset">Reset</button>
+          <label>Viteză <input type="range" id="speed" min="1" max="10" step="1" value="3"></label>
+        </div>
+        <div class="grid2" style="grid-template-columns: 260px 1fr; gap: 1rem">
+          <div class="lcd" aria-live="polite">
+            <div class="row1"><span id="lcdTop">citirea 0/10</span><span>UMG 104</span></div>
+            <div class="big"><span id="lcdVal">–</span><span class="unit" id="lcdUnit">V</span></div>
+            <div class="row3"><span id="lcdName">referință –</span><span></span></div>
+          </div>
+          <table id="readTab"></table>
+        </div>
+        <h3>Bugetul de incertitudine pentru punctul ales</h3>
+        <table id="budget"></table>
+        <p class="readout" id="ptRead"></p>
+        <div class="ctrl noprint"><button id="btnNote">Notează punctul în fișă</button><span class="status" id="stNote" role="status"></span></div>
+      </div>
+
+      <div class="card" id="decCard" style="display:none">
+        <h3 style="margin-top:0">Experiment 4 · Curba de erori și decizia de conformitate</h3>
+        <div class="ctrl"><label>Mărimea <select id="decQ"><option value="U">Tensiune</option><option value="I">Curent</option><option value="P">Putere activă</option></select></label></div>
+        <canvas id="cvErr" aria-label="Erorile relative cu incertitudinea extinsă și toleranța"></canvas>
+        <div class="legend"><span><i style="background:#142d4e"></i>eroarea relativă ± U (k = 2)</span><span><i style="background:#a23b00"></i>toleranța producătorului</span><span>punct: verde = conform, ocru = zonă de incertitudine, roșu = neconform</span></div>
+        <table id="decTab"></table>
+        <p class="note">Regula de decizie: conform dacă |E| + U ≤ toleranța; neconform dacă |E| − U &gt; toleranța; altfel rezultatul este în zona de incertitudine și nu se poate declara nici conformitatea, nici neconformitatea fără o regulă convenită.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-fisa" role="tabpanel">
+  <div class="card">
+    <h2>Fișa studentului · EMEC L03</h2>
+    <div class="ctrl">
+      <label>Nume și prenume <input id="fName" style="width:16rem"></label>
+      <label>Grupa <input id="fGroup" style="width:6rem"></label>
+      <span>N = <b id="fN">–</b> · cod <b id="fCode">–</b></span>
+    </div>
+    <h3>Calculează înainte de verificare: punctul de 230 V</h3>
+    <table>
+      <tr><th>Mărimea</th><th>Relația</th><th class="num">Calculul tău</th><th class="num">Aplicația</th></tr>
+      <tr><td>Media citirilor x̄ (V)</td><td>Σ x_k / n</td><td class="num"><input class="f" id="cMean"></td><td class="num" id="aMean"></td></tr>
+      <tr><td>Abaterea standard experimentală s (V)</td><td>√(Σ (x_k − x̄)² / (n − 1))</td><td class="num"><input class="f" id="cS"></td><td class="num" id="aS"></td></tr>
+      <tr><td>u_A (V)</td><td>s / √n</td><td class="num"><input class="f" id="cUA"></td><td class="num" id="aUA"></td></tr>
+      <tr><td>u_ref (V)</td><td>U_ref · x_ref / k_ref</td><td class="num"><input class="f" id="cUref"></td><td class="num" id="aUref"></td></tr>
+      <tr><td>u_rez (V)</td><td>0,01 / (2√3)</td><td class="num"><input class="f" id="cUrez"></td><td class="num" id="aUrez"></td></tr>
+      <tr><td>u_c (V)</td><td>√(u_A² + u_ref² + u_rez²)</td><td class="num"><input class="f" id="cUc"></td><td class="num" id="aUc"></td></tr>
+      <tr><td>U (V), k = 2</td><td>2 · u_c</td><td class="num"><input class="f" id="cU"></td><td class="num" id="aU"></td></tr>
+      <tr><td>Eroarea E (V) și relativă (%)</td><td>x̄ − x_ref</td><td class="num"><input class="f" id="cE"></td><td class="num" id="aE"></td></tr>
+      <tr><td>Decizia</td><td>|E| ± U față de 0,2 %</td><td class="num"><input class="f" id="cDec"></td><td class="num" id="aDec"></td></tr>
+    </table>
+    <h3>Certificatul de calibrare (punctele notate)</h3>
+    <table id="cert"></table>
+    <h3>Capturi de predat</h3>
+    <ul>
+      <li><b>C1</b> – Experimentul 1 la 230 V, după cele 10 citiri, cu tabelul de citiri și bugetul de incertitudine.</li>
+      <li><b>C2</b> – Experimentul 2 sau 3, un punct de curent sau de putere, după cele 10 citiri.</li>
+      <li><b>C3</b> – Experimentul 4, curba de erori a uneia dintre mărimi, cu tabelul de decizie.</li>
+    </ul>
+    <h3>Concluzii</h3>
+    <label for="fConcl">Răspunde: în ce puncte este aparatul conform? Care componentă domină bugetul de incertitudine și ce ai schimba ca să o reduci?</label>
+    <textarea id="fConcl"></textarea>
+    <div class="ctrl noprint">
+      <button class="primary" id="btnPrint">Tipărește / Salvează PDF</button>
+      <button id="btnJson">Export JSON</button>
+      <label class="note">Import JSON <input type="file" id="fileJson" accept="application/json"></label>
+      <button id="btnCsv">Export CSV</button>
+      <span class="status" id="stFisa" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-brev" role="tabpanel">
+  <h2>Breviar</h2>
+  <details open><summary>Calibrare, verificare, ajustare</summary>
+    <p>Calibrarea stabilește relația dintre valorile date de un etalon și indicațiile aparatului, împreună cu incertitudinile lor. Ea nu modifică aparatul. Ajustarea (reglajul) modifică aparatul ca să reducă erorile; la UMG 104, manualul precizează că repararea și calibrarea se fac numai de producător. Verificarea conformității compară rezultatul calibrării cu o toleranță și ia o decizie.</p>
+  </details>
+  <details><summary>Bugetul de incertitudine (GUM)</summary>
+    <p>Modelul: E = x̄_ind − x_ref. Componentele luate în calcul:</p>
+    <ul>
+      <li>repetabilitatea (tip A): u_A = s / √n, cu n = 10 citiri;</li>
+      <li>etalonul (tip B): u_ref = U_ref · x_ref / k_ref, din certificat;</li>
+      <li>rezoluția afișajului (tip B, distribuție rectangulară): u_rez = r / (2√3), cu r pasul de afișare.</li>
+    </ul>
+    <p>Incertitudinea combinată u_c = √(u_A² + u_ref² + u_rez²); incertitudinea extinsă U = k · u_c, cu k = 2 (nivel de încredere de aproximativ 95 %, dacă distribuția rezultatului este aproximativ normală).</p>
+    <p>Toleranța producătorului nu intră în bugetul de incertitudine al calibrării: ea este criteriul cu care se compară rezultatul.</p>
+  </details>
+  <details><summary>Puterea activă de referință</summary>
+    <p>P_ref = 3 · U_ref · I_ref · cos φ, pentru un sistem trifazat simetric cu aceeași tensiune și același curent pe faze. Incertitudinea relativă a etalonului pentru putere se ia din certificat; în model se folosește aceeași valoare procentuală ca la tensiune și curent.</p>
+  </details>
+  <details><summary>Parametrizarea după N</summary>
+    <p>Rezoluția: la citirea de pe afișaj, pasul de 0,01 A face ca incertitudinea la 0,5 A și 1 A să depășească toleranța de 0,25 %, deci decizia rămâne în zona de incertitudine oricât de mică ar fi eroarea. Citirea prin software (valori float prin Modbus sau GridVis) reduce această componentă.</p>
+    <p>Fiecare variantă are o eroare de câștig și una de offset pentru tensiune, curent și putere, plus o dispersie a citirilor. Pentru unele variante, un punct iese din toleranță sau cade în zona de incertitudine; decizia trebuie argumentată. Citirile se generează cu un generator pseudoaleator inițializat cu N și cu punctul, deci se repetă identic.</p>
+  </details>
+  <details><summary>Bibliografie</summary>
+    <ol>
+      <li>JCGM 100:2008 (GUM) – Evaluation of measurement data – Guide to the expression of uncertainty in measurement.</li>
+      <li>JCGM 200:2012 (VIM) – Vocabularul internațional de metrologie.</li>
+      <li>ILAC-G8:09/2019 – Guidelines on decision rules and statements of conformity.</li>
+      <li>Janitza electronics, UMG 104 – Operating manual and technical data, doc. 1.041.015.0.i.</li>
+      <li>IEC 61557-12 – Performance measuring and monitoring devices (PMD).</li>
+    </ol>
+  </details>
+</section>
+</main>
+
+<footer>Conf.dr.ing. Florin Ciprian Argatu · EMEC, Master SIIM · anul universitar 2026–2027 · versiunea <span id="ftVer"></span> · Aplicația nu transmite note și nu se conectează la aparatul real.</footer>
+
+<script>
+'use strict';
+const VERSION = '1.0';
+const CODE = 'EMEC-L03';
+const N_MIN = 1, N_MAX = 30, N_EXEMPLU = 7, NREAD = 10;
+const TOL = { U: 0.2, I: 0.25, P: 0.4 };            // % of reading (manual UMG 104)
+const RES_DISP = { U: 0.01, I: 0.01, P: 1 };         // V, A, W (afișaj)
+const RES_SW = { U: 0.001, I: 0.0001, P: 0.1 };      // citire prin software / Modbus
+function resOf(q, sw) { return (sw ? RES_SW : RES_DISP)[q]; }
+const UNIT = { U: 'V', I: 'A', P: 'W' };
+const DEC = { U: 2, I: 2, P: 0 };
+const POINTS = {
+  U: [50, 100, 230, 270].map(v => ({ ref: v, label: v + ' V' })),
+  I: [0.5, 1, 2.5, 5].map(v => ({ ref: v, label: String(v).replace('.', ',') + ' A' })),
+  P: [{ ref: 3 * 230 * 5 * 1, label: '230 V · 5 A · cos φ = 1' }, { ref: 3 * 230 * 5 * 0.5, label: '230 V · 5 A · cos φ = 0,5' }, { ref: 3 * 230 * 1 * 1, label: '230 V · 1 A · cos φ = 1' }],
+};
+
+const $ = (id) => document.getElementById(id);
+function fmt(v, d) { if (!isFinite(v)) return '–'; return Number(v).toFixed(d).replace('.', ','); }
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function status(id, msg, err) { const el = $(id); if (!el) return; el.textContent = msg; el.classList.toggle('err', !!err); }
+function download(name, content, type) { const blob = new Blob([content], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function validN(v) { const n = Number(v); if (!Number.isInteger(n) || n < N_MIN || n > N_MAX) return { ok: false, msg: 'N trebuie să fie un număr întreg între ' + N_MIN + ' și ' + N_MAX + '.' }; return { ok: true, n }; }
+
+// deterministic PRNG (mulberry32) + Box-Muller
+function prng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rnd) { const u = Math.max(1e-12, rnd()), v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+function variant(N) {
+  const g = (k, span) => ((((N * k) % 13) - 6) / 6) * span;    // deterministic in [-span, span]
+  return {
+    N,
+    gain: { U: g(5, 0.27), I: g(7, 0.33), P: g(11, 0.52) },   // %
+    off: { U: g(3, 0.03), I: g(4, 0.002), P: g(9, 0.8) },      // V, A, W
+    sig: { U: 0.012 + 0.002 * (N % 4), I: 0.0015 + 0.0003 * (N % 3), P: 0.6 + 0.1 * (N % 5) },  // std of readings
+  };
+}
+function round(v, r) { return Number((Math.round(v / r) * r).toFixed(6)); }
+function readings(V, q, idx, sw) {
+  const pt = POINTS[q][idx];
+  const rnd = prng(V.N * 1000 + { U: 1, I: 2, P: 3 }[q] * 100 + idx);
+  const out = [];
+  for (let k = 0; k < NREAD; k++) out.push(round(pt.ref * (1 + V.gain[q] / 100) + V.off[q] + V.sig[q] * gauss(rnd), resOf(q, sw)));
+  return out;
+}
+function analyse(V, q, idx, uRefPct, kRef, sw) {
+  const pt = POINTS[q][idx]; const x = readings(V, q, idx, sw); const n = x.length;
+  const mean = x.reduce((a, b) => a + b, 0) / n;
+  const s = Math.sqrt(x.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1));
+  const uA = s / Math.sqrt(n);
+  const uRef = uRefPct / 100 * pt.ref / kRef;
+  const uRez = resOf(q, sw) / (2 * Math.sqrt(3));
+  const uc = Math.sqrt(uA * uA + uRef * uRef + uRez * uRez);
+  const U = 2 * uc;
+  const E = mean - pt.ref;
+  const Erel = E / pt.ref * 100, Urel = U / pt.ref * 100;
+  const tol = TOL[q];
+  let dec = 'zonă de incertitudine';
+  if (Math.abs(Erel) + Urel <= tol) dec = 'conform';
+  else if (Math.abs(Erel) - Urel > tol) dec = 'neconform';
+  return { pt, x, mean, s, uA, uRef, uRez, uc, U, E, Erel, Urel, tol, dec };
+}
+
+let V = variant(N_EXEMPLU);
+let q = 'U', idx = 2, shown = 0, playing = false, lastTs = null, acc = 0;
+let notes = [];
+
+function setupCanvas(cv) { const dpr = window.devicePixelRatio || 1; const r = cv.getBoundingClientRect(); cv.width = Math.max(10, Math.round(r.width * dpr)); cv.height = Math.max(10, Math.round(r.height * dpr)); const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w: r.width, h: r.height }; }
+function uref() { const u = Number($('uRef').value), k = Number($('kRef').value); return { u: (isFinite(u) && u > 0) ? u : 0.05, k: (isFinite(k) && k >= 1) ? k : 2 }; }
+
+function fillPoints() {
+  $('ptSel').innerHTML = POINTS[q].map((p, i) => '<option value="' + i + '">' + esc(p.label) + '</option>').join('');
+  $('ptSel').value = String(Math.min(idx, POINTS[q].length - 1));
+}
+function renderPoint() {
+  const r = uref(); const sw = $('sw').checked; const a = analyse(V, q, idx, r.u, r.k, sw); const d = DEC[q] + (sw ? 1 : 0);
+  const unit = UNIT[q]; const show = a.x.slice(0, shown);
+  const f = (v) => q === 'P' ? fmt(v / 1000, 3) : fmt(v, d);
+  const unitShow = q === 'P' ? 'kW' : unit;
+  $('lcdTop').textContent = 'citirea ' + shown + '/' + NREAD;
+  $('lcdVal').textContent = shown ? f(show[shown - 1]).replace(',', '.') : '–';
+  $('lcdUnit').textContent = unitShow;
+  $('lcdName').textContent = 'referință ' + f(a.pt.ref) + ' ' + unitShow;
+  $('svgRef').textContent = f(a.pt.ref) + ' ' + unitShow; $('svgInd').textContent = shown ? f(show[shown - 1]) + ' ' + unitShow : '–';
+  let rows = '<tr><th>k</th><th class="num">x_k (' + unitShow + ')</th></tr>';
+  for (let k = 0; k < NREAD; k++) rows += '<tr><td>' + (k + 1) + '</td><td class="num">' + (k < shown ? f(a.x[k]) : '') + '</td></tr>';
+  $('readTab').innerHTML = rows;
+  const done = shown >= NREAD;
+  const g = (v) => done ? fmt(v, q === 'P' ? 3 : 5) : '';
+  $('budget').innerHTML = '<tr><th>Componenta</th><th>Tip</th><th>Relația</th><th class="num">u (' + unit + ')</th></tr>' +
+    '<tr><td>Repetabilitatea</td><td>A</td><td>s / √n, s = ' + g(a.s) + '</td><td class="num">' + g(a.uA) + '</td></tr>' +
+    '<tr><td>Etalonul</td><td>B, normală</td><td>' + fmt(r.u, 3) + ' % · x_ref / ' + fmt(r.k, 2) + '</td><td class="num">' + g(a.uRef) + '</td></tr>' +
+    '<tr><td>Rezoluția</td><td>B, rectangulară</td><td>' + String(resOf(q, sw)).replace('.', ',') + ' / (2√3)</td><td class="num">' + g(a.uRez) + '</td></tr>' +
+    '<tr><th colspan="3">Incertitudinea combinată u_c</th><th class="num">' + g(a.uc) + '</th></tr>' +
+    '<tr><th colspan="3">Incertitudinea extinsă U (k = 2)</th><th class="num">' + g(a.U) + '</th></tr>';
+  $('ptRead').textContent = done ? ('Media = ' + f(a.mean) + ' ' + unitShow + '; eroarea E = ' + fmt(a.E, q === 'P' ? 1 : 4) + ' ' + unit + ' (' + fmt(a.Erel, 3) + ' %); U = ' + fmt(a.Urel, 3) + ' %; toleranța ±' + fmt(a.tol, 2) + ' %. Decizie: ' + a.dec + '.') : 'Pornește achiziția (Play) și așteaptă cele 10 citiri.';
+  $('btnNote').disabled = !done;
+}
+function drawDec() {
+  const dq = $('decQ').value; const r = uref();
+  const rows = POINTS[dq].map((p, i) => analyse(V, dq, i, r.u, r.k, $('sw').checked));
+  const cv = $('cvErr'); const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 56, top = 28, base = h - 34;
+  const lim = Math.max(TOL[dq] * 1.6, ...rows.map(a => Math.abs(a.Erel) + a.Urel)) * 1.1;
+  const ys = (e) => top + (base - top) / 2 - e / lim * (base - top) / 2;
+  ctx.strokeStyle = '#c9d3dd'; ctx.beginPath(); ctx.moveTo(pad, ys(0)); ctx.lineTo(w - 8, ys(0)); ctx.moveTo(pad, top); ctx.lineTo(pad, base); ctx.stroke();
+  ctx.fillStyle = '#556274'; ctx.font = '12px sans-serif'; ctx.fillText('E (%)', 4, 12);
+  [lim, lim / 2, 0, -lim / 2, -lim].forEach(e => ctx.fillText(fmt(e, 2), 4, ys(e) + 4));
+  ctx.strokeStyle = '#a23b00'; ctx.setLineDash([6, 4]); [TOL[dq], -TOL[dq]].forEach(e => { ctx.beginPath(); ctx.moveTo(pad, ys(e)); ctx.lineTo(w - 8, ys(e)); ctx.stroke(); }); ctx.setLineDash([]);
+  const step = (w - pad - 20) / rows.length;
+  rows.forEach((a, i) => {
+    const x = pad + step * (i + 0.5);
+    ctx.strokeStyle = '#142d4e'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, ys(a.Erel - a.Urel)); ctx.lineTo(x, ys(a.Erel + a.Urel)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 8, ys(a.Erel + a.Urel)); ctx.lineTo(x + 8, ys(a.Erel + a.Urel)); ctx.moveTo(x - 8, ys(a.Erel - a.Urel)); ctx.lineTo(x + 8, ys(a.Erel - a.Urel)); ctx.stroke();
+    ctx.fillStyle = a.dec === 'conform' ? '#1d6b3a' : (a.dec === 'neconform' ? '#a23b00' : '#b07a00');
+    ctx.beginPath(); ctx.arc(x, ys(a.Erel), 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = '#172231'; ctx.fillText(a.pt.label, x - ctx.measureText(a.pt.label).width / 2, base + 16);
+    ctx.lineWidth = 1;
+  });
+  $('decTab').innerHTML = '<tr><th>Punct</th><th class="num">E (%)</th><th class="num">U (%)</th><th class="num">Toleranța (%)</th><th>Decizie</th></tr>' +
+    rows.map(a => '<tr><td>' + esc(a.pt.label) + '</td><td class="num">' + fmt(a.Erel, 3) + '</td><td class="num">' + fmt(a.Urel, 3) + '</td><td class="num">±' + fmt(a.tol, 2) + '</td><td>' + a.dec + '</td></tr>').join('');
+}
+function tick(ts) {
+  if (!playing) { lastTs = null; return; }
+  if (lastTs !== null) { acc += (ts - lastTs) / 1000 * Number($('speed').value); while (acc >= 1 && shown < NREAD) { acc -= 1; shown++; renderPoint(); } }
+  lastTs = ts;
+  if (shown >= NREAD) { playing = false; return; }
+  requestAnimationFrame(tick);
+}
+function setExp(e) {
+  document.querySelectorAll('.exps button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.exp === e)));
+  const dec = e === 'D'; $('expCard').style.display = dec ? 'none' : ''; $('decCard').style.display = dec ? '' : 'none';
+  if (dec) { drawDec(); return; }
+  q = e; idx = q === 'U' ? 2 : (q === 'I' ? 3 : 0); shown = 0; playing = false;
+  $('expTitle').textContent = { U: 'Experiment 1 · Tensiune', I: 'Experiment 2 · Curent (secundar TC)', P: 'Experiment 3 · Putere activă trifazată' }[q];
+  fillPoints(); renderPoint();
+}
+
+function applyN(n) {
+  V = variant(n); $('nIn').value = n; shown = 0; playing = false;
+  $('vCode').textContent = CODE + '-N' + String(n).padStart(2, '0') + '-v' + VERSION;
+  $('vData').textContent = 'Aparat virtual cu erori proprii variantei N = ' + n + '. Puncte: U 50/100/230/270 V; I 0,5/1/2,5/5 A; P la 230 V cu 5 A (cos φ 1 și 0,5) și 1 A. Toleranțe: U ±0,2 %, I ±0,25 %, P ±0,4 %.';
+  status('stVar', 'Varianta N = ' + n + ' aplicată.');
+  fillPoints(); renderPoint(); fillFisa(); saveLocal();
+}
+function fillFisa() {
+  $('fN').textContent = V.N; $('fCode').textContent = $('vCode').textContent;
+  const r = uref(); const nU = notes.filter(n => n.q === 'U' && n.idx === 2).slice(-1)[0]; const have = !!nU;
+  const a = analyse(V, 'U', 2, r.u, r.k, have ? !!nU.sw : false);
+  const set = (id, v) => { $(id).textContent = have ? v : ''; };
+  set('aMean', fmt(a.mean, 4)); set('aS', fmt(a.s, 5)); set('aUA', fmt(a.uA, 5)); set('aUref', fmt(a.uRef, 5)); set('aUrez', fmt(a.uRez, 5));
+  set('aUc', fmt(a.uc, 5)); set('aU', fmt(a.U, 4)); set('aE', fmt(a.E, 4) + ' V; ' + fmt(a.Erel, 3) + ' %'); set('aDec', a.dec);
+  const rows = notes.map(n => { const b = analyse(V, n.q, n.idx, n.u, n.k, !!n.sw); const u = n.q === 'P' ? 'kW' : UNIT[n.q]; const f = (v) => n.q === 'P' ? fmt(v / 1000, 4) : fmt(v, n.q === 'U' ? 3 : 4);
+    return '<tr><td>' + esc(b.pt.label) + (n.sw ? ' (software)' : ' (afișaj)') + '</td><td class="num">' + f(b.pt.ref) + ' ' + u + '</td><td class="num">' + f(b.mean) + '</td><td class="num">' + fmt(b.Erel, 3) + '</td><td class="num">' + fmt(b.Urel, 3) + '</td><td class="num">±' + fmt(b.tol, 2) + '</td><td>' + b.dec + '</td></tr>'; }).join('');
+  $('cert').innerHTML = '<tr><th>Punct</th><th class="num">Referință</th><th class="num">Media indicației</th><th class="num">E (%)</th><th class="num">U, k = 2 (%)</th><th class="num">Toleranța</th><th>Decizie</th></tr>' + (rows || '<tr><td colspan="7" class="note">Nimic notat încă. Folosește „Notează punctul în fișă” după cele 10 citiri.</td></tr>');
+}
+
+const LSKEY = CODE + '-' + VERSION;
+const CALC = ['cMean', 'cS', 'cUA', 'cUref', 'cUrez', 'cUc', 'cU', 'cE', 'cDec'];
+function collect() { return { code: CODE, version: VERSION, N: V.N, name: $('fName').value, group: $('fGroup').value, uRef: $('uRef').value, kRef: $('kRef').value, calc: CALC.reduce((o, k) => (o[k] = $(k).value, o), {}), concl: $('fConcl').value, notes }; }
+function saveLocal() { try { localStorage.setItem(LSKEY, JSON.stringify(collect())); } catch (e) { status('stFisa', 'Salvarea automată nu merge în acest browser: folosește Export JSON.', true); } }
+function restore(d) {
+  if (!d || d.code !== CODE || d.version !== VERSION || !validN(d.N).ok || !Array.isArray(d.notes)) throw new Error('fișier străin');
+  $('uRef').value = String(d.uRef || '0.05'); $('kRef').value = String(d.kRef || '2');
+  applyN(d.N);
+  notes = d.notes.filter(n => n && ['U', 'I', 'P'].includes(n.q) && Number.isInteger(n.idx) && n.idx >= 0 && n.idx < POINTS[n.q].length);
+  $('fName').value = String(d.name || ''); $('fGroup').value = String(d.group || ''); $('fConcl').value = String(d.concl || '');
+  if (d.calc) for (const k of CALC) if (k in d.calc) $(k).value = String(d.calc[k]);
+  fillFisa();
+}
+function restoreLocal() { try { const s = localStorage.getItem(LSKEY); if (s) { restore(JSON.parse(s)); return true; } } catch (e) { } return false; }
+function toCSV() {
+  const now = new Date().toISOString(); const rows = [['CODE', 'VERSION', 'N', 'data_ora', 'marime', 'punct', 'referinta', 'unitate', 'citiri', 'media', 'E_%', 'U_%', 'toleranta_%', 'decizie']];
+  notes.forEach(n => { const b = analyse(V, n.q, n.idx, n.u, n.k, !!n.sw); rows.push([CODE, VERSION, V.N, now, n.q, b.pt.label, b.pt.ref, UNIT[n.q], b.x.join(' '), b.mean, b.Erel.toFixed(4), b.Urel.toFixed(4), b.tol, b.dec]); });
+  return rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\n');
+}
+
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', 'false')); b.setAttribute('aria-selected', 'true');
+  document.querySelectorAll('section.tab').forEach(s => s.classList.remove('active')); $(b.dataset.tab).classList.add('active');
+  if ($('decCard').style.display !== 'none') drawDec(); fillFisa();
+}));
+document.querySelectorAll('.exps button').forEach(b => b.addEventListener('click', () => setExp(b.dataset.exp)));
+$('ptSel').addEventListener('change', () => { idx = Number($('ptSel').value); shown = 0; playing = false; renderPoint(); });
+$('btnPlay').addEventListener('click', () => { if (shown >= NREAD) shown = 0; if (!playing) { playing = true; acc = 0.99; requestAnimationFrame(tick); } });
+$('btnPause').addEventListener('click', () => { playing = false; });
+$('btnReset').addEventListener('click', () => { playing = false; shown = 0; renderPoint(); });
+['uRef', 'kRef'].forEach(id => $(id).addEventListener('input', () => { renderPoint(); fillFisa(); saveLocal(); }));
+$('decQ').addEventListener('change', drawDec);
+$('sw').addEventListener('change', () => { shown = 0; playing = false; renderPoint(); if ($('decCard').style.display !== 'none') drawDec(); });
+$('btnNote').addEventListener('click', () => { const r = uref(); notes = notes.filter(n => !(n.q === q && n.idx === idx)); notes.push({ q, idx, u: r.u, k: r.k, sw: $('sw').checked }); fillFisa(); saveLocal(); status('stNote', 'Punctul a fost trecut în certificat.'); });
+$('btnApply').addEventListener('click', () => { const r = validN($('nIn').value); if (!r.ok) { status('stVar', r.msg, true); return; } notes = []; applyN(r.n); });
+$('btnEx').addEventListener('click', () => { notes = []; applyN(N_EXEMPLU); });
+$('btnBoard').addEventListener('click', (e) => { const on = document.documentElement.classList.toggle('board'); e.target.setAttribute('aria-pressed', on); e.target.textContent = on ? 'Dimensiune normală' : 'Mărește pentru tablă'; if ($('decCard').style.display !== 'none') drawDec(); });
+['fName', 'fGroup', 'fConcl', ...CALC].forEach(id => $(id).addEventListener('input', saveLocal));
+$('btnPrint').addEventListener('click', () => window.print());
+$('btnJson').addEventListener('click', () => download('EMEC_L03_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.json', JSON.stringify(collect(), null, 2), 'application/json'));
+$('btnCsv').addEventListener('click', () => download('EMEC_L03_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.csv', toCSV(), 'text/csv'));
+$('fileJson').addEventListener('change', (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { restore(JSON.parse(rd.result)); status('stFisa', 'Fișa a fost încărcată.'); } catch (err) { status('stFisa', 'Fișierul nu este o fișă EMEC L03 v' + VERSION + ' și a fost respins.', true); } }; rd.readAsText(f); });
+window.addEventListener('resize', () => { if ($('decCard').style.display !== 'none') drawDec(); });
+
+$('ftVer').textContent = VERSION;
+if (!restoreLocal()) applyN(N_EXEMPLU);
+setExp('U');
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) $('speed').value = 10;
+</script>
+</body>
+</html>
