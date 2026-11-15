@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMEC · L07 · Analizorul transparent – achiziția sincronizată</title>
+<style>
+  :root {
+    --navy: #142d4e;
+    --teal: #007f86;
+    --paper: #f3f6f8;
+    --panel: #ffffff;
+    --ink: #172231;
+    --muted: #556274;
+    --line: #c9d3dd;
+    --lcd: #c4d3bd;
+    --lcd-ink: #1c2a19;
+    --l1: #c62828;
+    --l2: #b07a00;
+    --l3: #1f5fbf;
+    --ln: #7b3fa0;
+    --warn: #a23b00;
+    --ok: #1d6b3a;
+    --focus: #ffbf47;
+    --font-ui: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-head: "Bahnschrift", "DIN Alternate", "Segoe UI Semibold", "Arial Narrow", sans-serif;
+    --font-lcd: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; }
+  html.board { font-size: 20px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header.top { background: var(--navy); color: #fff; padding: 1rem 1.5rem 0.9rem; }
+  header.top .course { font-size: 0.9rem; opacity: 0.85; margin: 0; }
+  header.top h1 { font-family: var(--font-head); font-weight: 600; font-size: 1.9rem; margin: 0.1rem 0 0; letter-spacing: 0.01em; }
+  header.top .sub { margin: 0.2rem 0 0; font-size: 0.95rem; opacity: 0.9; }
+  .variant { background: #e4eef0; border-bottom: 1px solid var(--line); padding: 0.7rem 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; }
+  .variant label { font-weight: 600; }
+  .variant input[type=number] { width: 4.5rem; font-size: 1rem; padding: 0.3rem; }
+  .variant .code { font-family: var(--font-lcd); background: #fff; padding: 0.2rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; }
+  .variant .data { flex-basis: 100%; font-size: 0.95rem; color: var(--muted); }
+  button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--teal); background: #fff; color: var(--teal); cursor: pointer; min-height: 2.4rem; }
+  button.primary { background: var(--teal); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  nav.tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--paper); border-bottom: 2px solid var(--navy); flex-wrap: wrap; }
+  nav.tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--navy); padding: 0.7rem 1.1rem; font-weight: 600; }
+  nav.tabs button[aria-selected=true] { background: var(--navy); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 1.2rem 1.5rem 2rem; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  h2 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.45rem; margin: 0.4rem 0 0.8rem; }
+  h3 { font-family: var(--font-head); font-weight: 600; color: var(--navy); font-size: 1.15rem; margin: 1.2rem 0 0.5rem; }
+  p, li { max-width: 78ch; }
+  .grid2 { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 1.4rem; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { border: 1px solid var(--line); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+  th { background: #e8edf2; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.92rem; }
+  .status { min-height: 1.4rem; font-size: 0.95rem; color: var(--ok); }
+  .status.err { color: var(--warn); }
+
+  /* ---------- virtual analyser ---------- */
+  .device { background: linear-gradient(#e9ecee, #d5dade); border: 2px solid #8b96a1; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 0 #9aa4ae; }
+  .device .terms { display: flex; justify-content: space-between; font-family: var(--font-lcd); font-size: 0.72rem; color: #3e4955; margin-bottom: 0.5rem; }
+  .device .terms span { background: #2b3440; color: #dfe6ec; padding: 0.1rem 0.35rem; border-radius: 3px; }
+  .device .name { font-family: var(--font-head); font-weight: 600; color: #2b3440; margin: 0.2rem 0 0.6rem; font-size: 1rem; }
+  .lcd { background: var(--lcd); color: var(--lcd-ink); border: 3px solid #5f6a62; border-radius: 6px; padding: 0.6rem 0.8rem; font-family: var(--font-lcd); min-height: 7.6rem; position: relative; }
+  .lcd .row1 { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .lcd .big { font-size: 2.6rem; text-align: right; letter-spacing: 0.04em; line-height: 1.2; margin-top: 0.2rem; }
+  .lcd .unit { font-size: 1.2rem; margin-left: 0.3rem; }
+  .lcd .row3 { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.1rem; }
+  .lcd .cur { text-decoration: underline; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .lcd .cur { animation: none; } }
+  .keys { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .keys button { flex: 1; min-height: 3rem; background: #2b3440; color: #fff; border-color: #2b3440; font-weight: 600; }
+  .keys button.both { background: #4a5663; }
+  .keyhelp { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+
+  .exps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+  .exps button[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .expbody { display: none; }
+  .expbody.active { display: block; }
+  canvas { width: 100%; height: 260px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; margin: 0.6rem 0; }
+  .ctrl label { font-size: 0.95rem; }
+  .ctrl input[type=range] { width: 200px; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin: 0.4rem 0; }
+  .legend i { display: inline-block; width: 1.4rem; height: 0.25rem; vertical-align: middle; margin-right: 0.3rem; }
+  .readout { font-variant-numeric: tabular-nums; }
+  svg text { font-family: var(--font-ui); }
+  .frame { font-family: var(--font-lcd); font-size: 1.15rem; background: #0f1d2c; color: #d8f3f2; padding: 0.6rem 0.8rem; border-radius: 6px; word-break: break-all; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+  input.f { width: 7rem; font: inherit; padding: 0.2rem 0.3rem; }
+  textarea { width: 100%; min-height: 5rem; font: inherit; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem; border-top: 1px solid var(--line); }
+  @media (max-width: 700px) {
+    .grid2 { grid-template-columns: 1fr; }
+    header.top h1 { font-size: 1.45rem; }
+    .lcd .big { font-size: 2rem; }
+  }
+  @media print {
+    .noprint, nav.tabs, header.top, .variant { display: none !important; }
+    section.tab { display: none !important; }
+    #tab-fisa { display: block !important; }
+    body { background: #fff; }
+    .card { border: none; }
+  }
+  select { font: inherit; padding: 0.3rem; }
+</style>
+</head>
+<body>
+<header class="top">
+  <p class="course">EMEC · Echipamente și metode de evaluare a calității energiei electrice · Master SIIM, anul 2</p>
+  <h1>L07 · Analizorul transparent – achiziția sincronizată</h1>
+  <p class="sub">Eșantionare, fereastra de 10 perioade, aliasing și frecvența pe 10 s – laborator virtual pentru C07 · Conf.dr.ing. Florin Ciprian Argatu</p>
+</header>
+<div class="variant noprint" aria-label="Varianta individuală">
+  <label for="nIn">Numărul tău N (1–30)</label>
+  <input id="nIn" type="number" min="1" max="30" step="1" value="7">
+  <button class="primary" id="btnApply">Aplică varianta N</button>
+  <button id="btnEx">Exemplul N = 7</button>
+  <span>Cod variantă: <span class="code" id="vCode">–</span></span>
+  <button id="btnBoard" aria-pressed="false">Mărește pentru tablă</button>
+  <div class="data" id="vData"></div>
+  <div class="status" id="stVar" role="status"></div>
+</div>
+<nav class="tabs noprint" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="tab-start">1 · Începe aici</button>
+  <button role="tab" aria-selected="false" data-tab="tab-banc">2 · Banc virtual</button>
+  <button role="tab" aria-selected="false" data-tab="tab-fisa">3 · Fișa studentului</button>
+  <button role="tab" aria-selected="false" data-tab="tab-brev">4 · Breviar</button>
+</nav>
+<main>
+<section class="tab active" id="tab-start" role="tabpanel">
+  <h2>Ce investighezi</h2>
+  <p>Un analizor de calitate a energiei nu „vede” tensiunea, ci un șir de eșantioane. Rezultatul depinde de trei alegeri făcute în aparat: cât de des eșantionează, pe ce fereastră calculează și cum își potrivește fereastra după frecvența reală a rețelei. Aici deschidem aparatul și urmărim fiecare pas: semnalul, eșantioanele, fereastra de 10 perioade și valoarea afișată.</p>
+  <h3>Parcursul lucrării L07</h3>
+  <table>
+    <tr><th>Timp</th><th>Activitate</th></tr>
+    <tr><td>0–15 min</td><td>Calculele din fișă (fila 3): perioada, durata ferestrei, numărul de eșantioane, frecvența aparentă, frecvența pe 10 s.</td></tr>
+    <tr><td>15–45 min</td><td>Experimentul 1 · Fereastra de 10 perioade: fixă, variabilă sau sincronizată prin PLL; eroarea RMS fereastră cu fereastră.</td></tr>
+    <tr><td>45–70 min</td><td>Experimentul 2 · Aliasing: o armonică peste Nyquist apare ca altă armonică; efectul filtrului anti-aliasing.</td></tr>
+    <tr><td>70–100 min</td><td>Experimentul 3 · Frecvența pe 10 s: perioade întregi împărțite la durata lor; trecerile false prin zero.</td></tr>
+    <tr><td>100–120 min</td><td>Capturi C1–C3, comparație calcul / aplicație, concluzii.</td></tr>
+  </table>
+  <h3>Ce predai</h3>
+  <p>Fișa din fila 3, exportată ca PDF, cu N și codul variantei, calculele tale, cazurile notate, capturile C1–C3 și concluziile. Numele fișierului: <span style="font-family:var(--font-lcd)">EMEC_L07_Nxx_Nume_Prenume.pdf</span>.</p>
+  <h3>Ipotezele modelului</h3>
+  <ul>
+    <li>Semnalul este generat numeric: fundamentală de 230 V plus, opțional, o armonică. Nu există traductoare, zgomot sau neliniaritatea convertorului.</li>
+    <li>Eșantionarea este ideală (fără cuantizare); erorile vizibile vin doar din alegerea ferestrei și a frecvenței de eșantionare.</li>
+    <li>Filtrul anti-aliasing este modelat ca filtru Butterworth de ordinul 4, doar prin amplitudine.</li>
+    <li>Simularea nu este o măsurare pe aparatul real (UMG 104 din tabloul T01) și nu se prezintă ca atare.</li>
+  </ul>
+</section>
+
+<section class="tab" id="tab-banc" role="tabpanel">
+  <div class="exps noprint" role="group" aria-label="Experimente">
+    <button data-exp="e1" aria-pressed="true">Experiment 1 · Fereastra de 10 perioade</button>
+    <button data-exp="e2" aria-pressed="false">Experiment 2 · Aliasing</button>
+    <button data-exp="e3" aria-pressed="false">Experiment 3 · Frecvența pe 10 s</button>
+  </div>
+  <div class="ctrl noprint">
+    <button class="primary" id="btnPlay">Play</button><button id="btnPause">Pauză</button><button id="btnReset">Reset</button>
+    <label>Viteză <input type="range" id="slow" min="0.1" max="2" step="0.1" value="0.6"> <span id="slowVal" class="readout"></span></label>
+    <span class="readout" id="clock">–</span>
+  </div>
+
+  <!-- E1 -->
+  <div class="expbody active" id="e1">
+    <div class="grid2">
+      <div class="device">
+        <div class="terms"><span>U</span><span>CAD</span><span>DSP</span><span>200 ms</span></div>
+        <div class="name">Analizor virtual · fereastra curentă</div>
+        <div class="lcd" aria-live="polite">
+          <div class="row1"><span id="lcdWin">fereastra 1</span><span id="lcdMode">fixă</span></div>
+          <div class="big"><span id="lcdU">–</span><span class="unit">V</span></div>
+          <div class="row3"><span id="lcdErr">eroare –</span><span id="lcdNs">– eșant.</span></div>
+        </div>
+        <div class="keyhelp">Valoarea RMS calculată din eșantioanele unei ferestre; „eroare” este față de valoarea RMS adevărată a semnalului.</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Setări</h3>
+        <div class="ctrl"><label>Frecvența rețelei <input type="range" id="e1f" min="47" max="53" step="0.01"> <span class="readout" id="e1fV"></span> Hz</label></div>
+        <div class="ctrl">
+          <label>Frecvența de eșantionare
+            <select id="e1fs">
+              <option value="3200">3,2 kHz (64 / perioadă)</option>
+              <option value="6400">6,4 kHz</option>
+              <option value="10240">10,24 kHz</option>
+              <option value="12800">12,8 kHz</option>
+              <option value="20000">20 kHz (ca UMG 104)</option>
+            </select></label>
+        </div>
+        <div class="ctrl">
+          <label>Fereastra
+            <select id="e1mode">
+              <option value="fix">fixă: 200 ms după ceasul CAD</option>
+              <option value="var">variabilă: N = rotunjit(10 · fs / f)</option>
+              <option value="pll">PLL: fs = 256 · f, N = 2560</option>
+            </select></label>
+        </div>
+        <div class="ctrl"><label>Armonica 5 <input type="range" id="e1h" min="0" max="10" step="0.5"> <span class="readout" id="e1hV"></span> % din U₁</label></div>
+        <div class="ctrl noprint"><button id="e1Var">Valorile variantei</button><button id="e1Nom">50,00 Hz</button></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <h3 style="margin-top:0">Semnalul și fereastra curentă</h3>
+      <canvas id="cvE1a" aria-label="Semnalul, eșantioanele și limitele ferestrei"></canvas>
+      <div class="legend"><span><i style="background:#142d4e"></i>u(t)</span><span><i style="background:#007f86"></i>eșantioane folosite</span><span><i style="background:#a23b00"></i>sfârșitul ferestrei</span><span><i style="background:#1d6b3a"></i>sfârșitul a 10 perioade reale</span></div>
+      <h3>Eroarea RMS fereastră cu fereastră (ultimele 40)</h3>
+      <canvas id="cvE1b" aria-label="Eroarea fiecărei ferestre" style="height:200px"></canvas>
+      <div class="legend"><span><i style="background:#007f86"></i>eroarea ferestrei (%)</span><span><i style="background:#e8b9a0"></i>±0,1 % (clasa A)</span></div>
+      <p class="readout" id="e1Read"></p>
+      <div class="ctrl noprint"><button id="note1">Notează cazul în fișă</button><span class="status" id="st1" role="status"></span></div>
+    </div>
+  </div>
+
+  <!-- E2 -->
+  <div class="expbody" id="e2">
+    <div class="card">
+      <h3 style="margin-top:0">Experiment 2 · O armonică peste frecvența Nyquist</h3>
+      <div class="ctrl">
+        <label>Ordinul armonicii h <input type="range" id="e2h" min="1" max="60" step="1"> <span class="readout" id="e2hV"></span></label>
+        <label>fs
+          <select id="e2fs">
+            <option value="3200">3,2 kHz</option>
+            <option value="6400">6,4 kHz</option>
+            <option value="10240">10,24 kHz</option>
+          </select></label>
+        <label><input type="checkbox" id="e2aaf"> Filtru anti-aliasing (Butterworth ord. 4, fc = 0,4 · fs)</label>
+        <button class="noprint" id="e2Var">Armonica variantei</button>
+      </div>
+      <canvas id="cvE2" aria-label="Componenta reală, eșantioanele și componenta reconstruită"></canvas>
+      <div class="legend"><span><i style="background:#9aa4ae"></i>componenta reală</span><span><i style="background:#007f86"></i>eșantioane</span><span><i style="background:#a23b00"></i>ce reconstruiește aparatul</span></div>
+      <p class="readout" id="e2Read"></p>
+      <div class="ctrl noprint"><button id="note2">Notează cazul în fișă</button><span class="status" id="st2" role="status"></span></div>
+    </div>
+  </div>
+
+  <!-- E3 -->
+  <div class="expbody" id="e3">
+    <div class="grid2">
+      <div class="device">
+        <div class="terms"><span>U ref</span><span>filtru</span><span>numărare</span><span>10 s</span></div>
+        <div class="name">Frecvențmetru virtual (IEC 61000-4-30)</div>
+        <div class="lcd" aria-live="polite">
+          <div class="row1"><span id="lcd3t">t = 0,0 s</span><span id="lcd3m">perioade / durată</span></div>
+          <div class="big"><span id="lcd3f">–</span><span class="unit">Hz</span></div>
+          <div class="row3"><span id="lcd3n">– perioade</span><span id="lcd3e">–</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Setări</h3>
+        <div class="ctrl"><label>Frecvența reală <input type="range" id="e3f" min="49.9" max="50.1" step="0.001"> <span class="readout" id="e3fV"></span> Hz</label></div>
+        <div class="ctrl">
+          <label>Metoda
+            <select id="e3m">
+              <option value="ok">perioade întregi / durata lor (clasa A)</option>
+              <option value="bad">perioade întregi / 10 s (greșit)</option>
+            </select></label>
+        </div>
+        <div class="ctrl"><label><input type="checkbox" id="e3dist"> Componentă de 10 % la 2050 Hz (h = 41)</label></div>
+        <div class="ctrl"><label><input type="checkbox" id="e3filt" checked> Filtru trece-jos înainte de detecție</label></div>
+        <div class="ctrl noprint"><button id="e3Var">Frecvența variantei</button></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <h3 style="margin-top:0">Primele 60 ms și trecerile prin zero detectate (crescătoare)</h3>
+      <canvas id="cvE3" aria-label="Semnalul și trecerile prin zero"></canvas>
+      <div class="legend"><span><i style="background:#142d4e"></i>semnalul văzut de detector</span><span><i style="background:#a23b00"></i>trecere crescătoare detectată</span></div>
+      <p class="readout" id="e3Read"></p>
+      <div class="ctrl noprint"><button id="note3">Notează cazul în fișă</button><span class="status" id="st3" role="status"></span></div>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-fisa" role="tabpanel">
+  <div class="card">
+    <h2>Fișa studentului · EMEC L07 · Analizorul transparent</h2>
+    <div class="ctrl">
+      <label>Nume și prenume <input id="fName" style="width:16rem"></label>
+      <label>Grupa <input id="fGroup" style="width:6rem"></label>
+      <span>N = <b id="fN">–</b> · cod <b id="fCode">–</b></span>
+    </div>
+    <h3>Date impuse</h3>
+    <table id="fData"></table>
+    <h3>Calculează înainte de verificare</h3>
+    <table>
+      <tr><th>Mărimea</th><th>Relația</th><th class="num">Calculul tău</th><th class="num">Citit în aplicație</th></tr>
+      <tr><td>Perioada T (ms)</td><td>1000 / f</td><td class="num"><input class="f" id="cT"></td><td class="num" id="mT"></td></tr>
+      <tr><td>Durata a 10 perioade (ms)</td><td>10 · T</td><td class="num"><input class="f" id="cTw"></td><td class="num" id="mTw"></td></tr>
+      <tr><td>Perioade într-o fereastră fixă de 200 ms</td><td>0,2 · f</td><td class="num"><input class="f" id="cPer"></td><td class="num" id="mPer"></td></tr>
+      <tr><td>Eșantioane în 10 perioade la fs</td><td>10 · fs / f</td><td class="num"><input class="f" id="cNs"></td><td class="num" id="mNs"></td></tr>
+      <tr><td>Frecvența aparentă a armonicii hA la 3,2 kHz (Hz)</td><td>|h·50 − k·3200|, cea mai mică</td><td class="num"><input class="f" id="cFa"></td><td class="num" id="mFa"></td></tr>
+      <tr><td>Perioade întregi în 10 s la f₃</td><td>⌊10 · f₃⌋ sau ⌊10 · f₃⌋ − 1, după faza de start</td><td class="num"><input class="f" id="cNc"></td><td class="num" id="mNc"></td></tr>
+      <tr><td>Rezultatul metodei greșite (Hz)</td><td>perioade întregi / 10 s</td><td class="num"><input class="f" id="cFb"></td><td class="num" id="mFb"></td></tr>
+    </table>
+    <h3>Cazurile notate din banc</h3>
+    <table id="fNotes"></table>
+    <h3>Capturi de predat</h3>
+    <ul>
+      <li><b>C1</b> – Experimentul 1 la frecvența variantei: fereastra fixă, apoi PLL, cu graficul erorilor pentru cel puțin 20 de ferestre.</li>
+      <li><b>C2</b> – Experimentul 2 cu armonica variantei, fără filtru și cu filtru anti-aliasing.</li>
+      <li><b>C3</b> – Experimentul 3 cu frecvența variantei: metoda corectă și metoda greșită, după 10 s.</li>
+    </ul>
+    <h3>Concluzii</h3>
+    <label for="fConcl">Răspunde: de ce trebuie ca fereastra să urmărească frecvența reală? Ce s-ar întâmpla cu un analizor fără filtru anti-aliasing într-o rețea cu convertoare statice?</label>
+    <textarea id="fConcl"></textarea>
+    <div class="ctrl noprint">
+      <button class="primary" id="btnPrint">Tipărește / Salvează PDF</button>
+      <button id="btnJson">Export JSON</button>
+      <label class="note">Import JSON <input type="file" id="fileJson" accept="application/json"></label>
+      <button id="btnCsv">Export CSV</button>
+      <span class="status" id="stFisa" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-brev" role="tabpanel">
+  <h2>Breviar</h2>
+  <details open><summary>Fereastra de bază: 10 perioade, nu 200 ms</summary>
+    <p>IEC 61000-4-30 (clasa A) cere ca tensiunea, armonicile și nesimetria să fie calculate pe intervale de 10 perioade la 50 Hz (12 la 60 Hz), contigue și fără suprapunere. Durata intervalului urmează frecvența reală: 202,02 ms la 49,5 Hz, 198,02 ms la 50,5 Hz. O fereastră fixă de 200 ms cuprinde un număr neîntreg de perioade când frecvența se abate, iar valoarea RMS depinde de faza de start: la 49,5 Hz eroarea poate ajunge la aproximativ ±0,47 %, peste incertitudinea de ±0,1 % din Udin admisă în clasa A.</p>
+  </details>
+  <details><summary>Cele trei moduri de a sincroniza fereastra</summary>
+    <p><b>Fereastră variabilă:</b> CAD-ul rămâne la fs fix, iar fereastra se închide la eșantionul cel mai apropiat de 10 perioade; eroarea rămasă este de cel mult o jumătate de perioadă de eșantionare. <b>PLL:</b> ceasul CAD-ului se generează ca fs = N·f₁ (de exemplu 256·f₁), deci fereastra are mereu 10·N eșantioane. <b>Reeșantionare:</b> fs fix, iar DSP-ul interpolează eșantioane pe o grilă sincronă; rezultatul este apropiat de cel cu PLL. IEC 61000-4-7 cere ca fereastra să corespundă celor 10 perioade cu o abatere de cel mult ±0,03 % (verificați ediția în vigoare).</p>
+  </details>
+  <details><summary>Aliasing și filtrul anti-aliasing</summary>
+    <p>O componentă de frecvență f eșantionată cu fs apare la frecvența aparentă f_a = |f − k·fs|, cea mai mică valoare obținută pentru k întreg; dacă f &lt; fs/2, f_a = f. Exemplu: armonica 50 (2500 Hz) la fs = 3,2 kHz apare la 700 Hz, adică armonica 14. După eșantionare alias-ul nu mai poate fi separat de semnal; se previne cu filtru analogic înainte de CAD. Filtrul din aplicație: |H| = 1 / √(1 + (f/fc)⁸), fc = 0,4·fs.</p>
+  </details>
+  <details><summary>Frecvența pe 10 s (IEC 61000-4-30, 5.1)</summary>
+    <p>O valoare la fiecare 10 s, pe intervale care încep la ceasul absolut și nu se suprapun. Frecvența este numărul de perioade întregi numărate în interval împărțit la durata cumulată a acestor perioade; perioadele tăiate de granița de 10 s se elimină. Înainte de numărare, armonicile și interarmonicile se atenuează, ca să nu apară treceri multiple prin zero. Incertitudinea admisă în clasa A: ±0,01 Hz. Exemplu: la 49,99 Hz încap 499 de perioade întregi, cu durata 9,98200 s, deci f = 49,990 Hz; metoda greșită 499 / 10 s dă 49,900 Hz.</p>
+  </details>
+  <details><summary>Parametrizarea după N</summary>
+    <p>Frecvența pentru Experimentul 1 este între 49,40 și 50,60 Hz (niciodată exact 50 Hz); frecvența de eșantionare se alege dintre 6,4 / 10,24 / 12,8 / 20 kHz; armonica pentru aliasing este între h = 35 și h = 49 (fs = 3,2 kHz); frecvența pentru Experimentul 3 este între 49,950 și 50,050 Hz. Aceeași valoare N dă mereu aceleași date.</p>
+  </details>
+  <details><summary>Legătura cu aparatul real și cu cursul</summary>
+    <p>Teoria este în cursul C07 „Achiziția sincronizată și fereastra de 200 ms”. În laboratorul ConectLab, achiziția și sincronizarea se fac în analizorul UMG 104 (fs = 20 kHz); gateway-ul ESP32-S3 citește prin Modbus valori deja calculate. Cursurile C08 (algoritmii) și C09 (agregarea) vor completa această aplicație.</p>
+  </details>
+  <details><summary>Bibliografie</summary>
+    <ol>
+      <li>IEC 61000-4-30 – Testing and measurement techniques – Power quality measurement methods (ed. 1, 2003, și edițiile ulterioare).</li>
+      <li>IEC 61000-4-7 – General guide on harmonics and interharmonics measurements and instrumentation.</li>
+      <li>Materialele cursului EMEC: C03, C06, C07 și capitolul „Aprecierea influenței parametrilor de calitate a energiei asupra aparatelor de măsurat”.</li>
+    </ol>
+  </details>
+</section>
+</main>
+<footer>Conf.dr.ing. Florin Ciprian Argatu · EMEC, Master SIIM · anul universitar 2026–2027 · versiunea <span id="ftVer"></span> · Aplicația nu transmite note și nu se conectează la aparatul real.</footer>
+<script>
+'use strict';
+const VERSION = '1.0';
+const CODE = 'EMEC-L07';
+const N_MIN = 1, N_MAX = 30, N_EXEMPLU = 7;
+const U1 = 230;
+const FS_LIST = [6400, 10240, 12800, 20000];
+const FS_A = 3200;
+
+const $ = (id) => document.getElementById(id);
+function fmt(v, d) { if (!isFinite(v)) return '–'; return Number(v).toFixed(d).replace('.', ','); }
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function status(id, msg, err) { const el = $(id); if (!el) return; el.textContent = msg; el.classList.toggle('err', !!err); }
+function download(name, content, type) { const blob = new Blob([content], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function validN(v) { const n = Number(v); if (!Number.isInteger(n) || n < N_MIN || n > N_MAX) return { ok: false, msg: 'N trebuie să fie un număr întreg între ' + N_MIN + ' și ' + N_MAX + '.' }; return { ok: true, n }; }
+const r2 = (x) => Math.round(x * 100) / 100;
+const r3 = (x) => Math.round(x * 1000) / 1000;
+
+// ---------- varianta (fără hazard) ----------
+function variant(N) {
+  let k = (N * 7 + 3) % 29; if (k === 14) k = 15;          // niciodată exact 50 Hz
+  const f1 = r2(49.40 + 1.20 * k / 28);
+  const fs = FS_LIST[N % 4];
+  const hA = 35 + (N * 3) % 15;                               // 35 … 49
+  let m = (N * 11) % 21; if (m === 10) m = 11;                // niciodată exact 50 Hz
+  const f3 = r3(49.95 + 0.10 * m / 20);
+  const phi = ((N * 37) % 360);                               // faza de start (grade)
+  return { N, f1, fs, hA, f3, phi };
+}
+
+// ---------- calcule ----------
+function aliasFreq(f, fs) { const r = ((f % fs) + fs) % fs; return Math.min(r, fs - r); }
+function aafGain(f, fs) { const fc = 0.4 * fs; return 1 / Math.sqrt(1 + Math.pow(f / fc, 8)); }
+function windowSpec(mode, f, fs) {
+  if (mode === 'pll') return { fsE: 256 * f, Nw: 2560 };
+  if (mode === 'var') return { fsE: fs, Nw: Math.round(10 * fs / f) };
+  return { fsE: fs, Nw: Math.round(0.2 * fs) };
+}
+function u1(t, f, h, phi) {
+  const w = 2 * Math.PI * f * t + phi;
+  return Math.SQRT2 * U1 * (Math.sin(w) + h / 100 * Math.sin(5 * w + 0.3));
+}
+function windowRms(t0, spec, f, h, phi) {
+  let s = 0;
+  for (let n = 0; n < spec.Nw; n++) { const v = u1(t0 + n / spec.fsE, f, h, phi); s += v * v; }
+  return Math.sqrt(s / spec.Nw);
+}
+function trueRms(h) { return U1 * Math.sqrt(1 + (h / 100) * (h / 100)); }
+// frecvența pe 10 s: treceri crescătoare interpolate
+function crossings(f, dist, filt, phi, tEnd) {
+  const fsD = 20000, n = Math.round(tEnd * fsD), out = [];
+  const val = (t) => Math.sin(2 * Math.PI * f * t + phi) + (dist && !filt ? 0.1 * Math.sin(2 * Math.PI * 2050 * t + 0.7) : 0);
+  let prev = val(0);
+  for (let i = 1; i <= n; i++) {
+    const t = i / fsD, v = val(t);
+    if (prev < 0 && v >= 0) out.push(t - 1 / fsD + (1 / fsD) * (-prev) / (v - prev));
+    prev = v;
+  }
+  return { list: out, val };
+}
+function freq10(cr, method) {
+  const L = cr.list; if (L.length < 2) return { cycles: 0, dur: 0, f: NaN };
+  const cycles = L.length - 1, dur = L[L.length - 1] - L[0];
+  return { cycles, dur, f: method === 'bad' ? cycles / 10 : cycles / dur };
+}
+
+// ---------- stare ----------
+let V = variant(N_EXEMPLU);
+let s1 = { f: V.f1, fs: V.fs, mode: 'fix', h: 0 };
+let s2 = { h: V.hA, fs: FS_A, aaf: false };
+let s3 = { f: V.f3, method: 'ok', dist: false, filt: true };
+let running = false, tPhys = 0, lastTs = null, exp = 'e1', notes = [];
+let hist = [], t0 = 0, winAcc = 0, cr3 = null, res3 = null;
+
+function setupCanvas(cv) { const dpr = window.devicePixelRatio || 1; const r = cv.getBoundingClientRect(); cv.width = Math.max(10, Math.round(r.width * dpr)); cv.height = Math.max(10, Math.round(r.height * dpr)); const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w: r.width, h: r.height }; }
+function line(g, x1, y1, x2, y2, c, w, dash) { g.strokeStyle = c; g.lineWidth = w || 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]); }
+function txt(g, s, x, y, c, f) { g.fillStyle = c || '#556274'; g.font = f || '11px sans-serif'; g.fillText(s, x, y); }
+
+// ---------- Experiment 1 ----------
+function e1Reset() { hist = []; t0 = 0; winAcc = 0; e1Step(); }
+function e1Step() {
+  const spec = windowSpec(s1.mode, s1.f, s1.fs);
+  const rms = windowRms(t0, spec, s1.f, s1.h, V.phi * Math.PI / 180);
+  const err = (rms - trueRms(s1.h)) / trueRms(s1.h) * 100;
+  hist.push({ t0, rms, err, Nw: spec.Nw, Tw: spec.Nw / spec.fsE });
+  if (hist.length > 40) hist.shift();
+  t0 += spec.Nw / spec.fsE;
+}
+function drawE1() {
+  const cur = hist[hist.length - 1]; if (!cur) return;
+  const spec = windowSpec(s1.mode, s1.f, s1.fs), phi = V.phi * Math.PI / 180;
+  const ts = cur.t0, Tw = cur.Tw, T10 = 10 / s1.f;
+  let { ctx: g, w, h } = setupCanvas($('cvE1a')); g.clearRect(0, 0, w, h);
+  const split = w * 0.68, top = 18, bot = h - 22, mid = (top + bot) / 2, A = Math.SQRT2 * U1 * (1 + s1.h / 100) * 1.1;
+  const yv = (v) => mid - v / A * (bot - top) / 2;
+  // panou stânga: întreaga fereastră
+  const L0 = 40, L1 = split - 10, span = Math.max(Tw, T10) * 1.06;
+  const xl = (t) => L0 + (t - ts) / span * (L1 - L0);
+  line(g, L0, mid, L1, mid, '#c9d3dd');
+  for (const v of [-300, 0, 300]) txt(g, String(v), 4, yv(v) + 4);
+  txt(g, 'u (V)', 4, 12); txt(g, 't − t₀ (ms)', L0 + 4, bot - 6);
+  for (let k = 0; k <= Math.floor(span * 1000 / 50); k++) { const x = xl(ts + k * 0.05); line(g, x, bot, x, bot + 4, '#8a96a3'); txt(g, String(k * 50), x - 8, bot + 15); }
+  g.strokeStyle = '#142d4e'; g.lineWidth = 1.2; g.beginPath();
+  for (let x = L0; x <= L1; x += 1) { const t = ts + (x - L0) / (L1 - L0) * span; const y = yv(u1(t, s1.f, s1.h, phi)); x === L0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+  g.stroke();
+  line(g, xl(ts + Tw), top, xl(ts + Tw), bot, '#a23b00', 2);
+  line(g, xl(ts + T10), top, xl(ts + T10), bot, '#1d6b3a', 2, [5, 4]);
+  // panou dreapta: zoom ±4 ms în jurul sfârșitului ferestrei
+  const R0 = split + 10, R1 = w - 8, zc = ts + T10, zs = 0.008;
+  const xr = (t) => R0 + (t - (zc - zs / 2)) / zs * (R1 - R0);
+  g.fillStyle = '#f3f6f8'; g.fillRect(R0, top, R1 - R0, bot - top);
+  txt(g, 'zoom ±4 ms la sfârșit', R0 + 4, 12);
+  line(g, R0, mid, R1, mid, '#c9d3dd');
+  g.strokeStyle = '#142d4e'; g.lineWidth = 1.5; g.beginPath();
+  for (let x = R0; x <= R1; x += 1) { const t = zc - zs / 2 + (x - R0) / (R1 - R0) * zs; const y = yv(u1(t, s1.f, s1.h, phi)); x === R0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+  g.stroke();
+  const nA = Math.max(0, Math.floor((zc - zs / 2 - ts) * spec.fsE)), nB = Math.min(spec.Nw - 1, Math.ceil((zc + zs / 2 - ts) * spec.fsE));
+  g.fillStyle = '#007f86';
+  for (let n = nA; n <= nB; n++) { const t = ts + n / spec.fsE; const x = xr(t); if (x >= R0 && x <= R1) { g.beginPath(); g.arc(x, yv(u1(t, s1.f, s1.h, phi)), 3, 0, 2 * Math.PI); g.fill(); } }
+  const xe = xr(ts + Tw); if (xe >= R0 && xe <= R1) line(g, xe, top, xe, bot, '#a23b00', 2);
+  line(g, xr(zc), top, xr(zc), bot, '#1d6b3a', 2, [5, 4]);
+  // erorile
+  ({ ctx: g, w, h } = setupCanvas($('cvE1b'))); g.clearRect(0, 0, w, h);
+  const maxE = Math.max(0.6, ...hist.map(x => Math.abs(x.err)) ) * 1.15;
+  const B0 = 44, B1 = w - 8, bt = 10, bb = h - 18, bm = (bt + bb) / 2, ye = (e) => bm - e / maxE * (bb - bt) / 2;
+  g.fillStyle = '#f6dfd2'; g.fillRect(B0, ye(0.1), B1 - B0, ye(-0.1) - ye(0.1));
+  line(g, B0, bm, B1, bm, '#8a96a3');
+  for (const e of [-maxE * 0.8, 0, maxE * 0.8]) txt(g, fmt(e, 2), 2, ye(e) + 4);
+  txt(g, '%', 4, 10); txt(g, 'fereastra →', B1 - 70, h - 4);
+  const bw = (B1 - B0) / 40;
+  hist.forEach((x, i) => { g.fillStyle = Math.abs(x.err) > 0.1 ? '#a23b00' : '#007f86'; const y = ye(x.err); g.fillRect(B0 + i * bw + 1, Math.min(y, bm), bw - 2, Math.max(1, Math.abs(y - bm))); });
+  // LCD și text
+  const k = hist.length;
+  $('lcdWin').textContent = 'fereastra ' + k;
+  $('lcdMode').textContent = { fix: 'fixă 200 ms', var: 'variabilă', pll: 'PLL 256·f' }[s1.mode];
+  $('lcdU').textContent = fmt(cur.rms, 2);
+  const ce = Math.abs(cur.err) < 0.0005 ? 0 : cur.err;
+  $('lcdErr').textContent = 'eroare ' + (ce >= 0 ? '+' : '') + fmt(ce, 3) + ' %';
+  $('lcdNs').textContent = cur.Nw + ' eșant. · ' + fmt(cur.Tw * 1000, 2) + ' ms';
+  const mx = Math.max(...hist.map(x => Math.abs(x.err)));
+  $('e1Read').textContent = 'f = ' + fmt(s1.f, 2) + ' Hz → 10 perioade = ' + fmt(T10 * 1000, 3) + ' ms (' + fmt(10 * s1.fs / s1.f, 1) + ' eșantioane la ' + fmt(s1.fs / 1000, 2) + ' kHz). Fereastra folosită: ' + cur.Nw + ' eșantioane = ' + fmt(cur.Tw * 1000, 3) + ' ms, adică ' + fmt(cur.Tw * s1.f, 3) + ' perioade. Eroarea maximă pe ultimele ' + k + ' ferestre: ' + fmt(mx, 3) + ' % ' + (mx <= 0.1 ? '(în ±0,1 %).' : '(peste ±0,1 %).');
+  $('clock').textContent = 'fereastra ' + k + ' · t₀ = ' + fmt(cur.t0, 3) + ' s';
+}
+
+// ---------- Experiment 2 ----------
+function e2Info() {
+  const f = 50 * s2.h, fa = aliasFreq(f, s2.fs), G = s2.aaf ? aafGain(f, s2.fs) : 1;
+  return { f, fa, G, ha: fa / 50, over: f > s2.fs / 2 };
+}
+function drawE2() {
+  const I = e2Info();
+  const { ctx: g, w, h } = setupCanvas($('cvE2')); g.clearRect(0, 0, w, h);
+  const L0 = 40, L1 = w - 10, top = 14, bot = h - 22, mid = (top + bot) / 2, span = 0.005, off = tPhys * 0.002;
+  const xt = (t) => L0 + (t - off) / span * (L1 - L0), yv = (v) => mid - v / 1.25 * (bot - top) / 2;
+  line(g, L0, mid, L1, mid, '#c9d3dd');
+  for (const v of [-1, 0, 1]) txt(g, String(v), 18, yv(v) + 4);
+  for (let k = 0; k <= 5; k++) { const x = L0 + k / 5 * (L1 - L0); txt(g, fmt(off * 1000 + k, 1), x - 8, bot + 15); }
+  txt(g, 't (ms)', L1 - 34, top);
+  g.strokeStyle = '#9aa4ae'; g.lineWidth = 1; g.beginPath();
+  for (let x = L0; x <= L1; x += 0.5) { const t = off + (x - L0) / (L1 - L0) * span; const y = yv(I.G * Math.cos(2 * Math.PI * I.f * t)); x === L0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+  g.stroke();
+  g.strokeStyle = '#a23b00'; g.lineWidth = 2.4; g.beginPath();
+  for (let x = L0; x <= L1; x += 1) { const t = off + (x - L0) / (L1 - L0) * span; const y = yv(I.G * Math.cos(2 * Math.PI * I.fa * t)); x === L0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+  g.stroke();
+  g.fillStyle = '#007f86';
+  for (let n = Math.ceil(off * s2.fs); n / s2.fs <= off + span; n++) { const t = n / s2.fs; g.beginPath(); g.arc(xt(t), yv(I.G * Math.cos(2 * Math.PI * I.f * t)), 4, 0, 2 * Math.PI); g.fill(); }
+  const dB = 20 * Math.log10(I.G);
+  $('e2Read').textContent = 'h = ' + s2.h + ' → ' + fmt(I.f, 0) + ' Hz; Nyquist = ' + fmt(s2.fs / 2, 0) + ' Hz. ' +
+    (I.over ? 'Componenta este peste Nyquist și apare la ' + fmt(I.fa, 0) + ' Hz' + (Number.isInteger(I.ha) ? ' = armonica ' + I.ha + '.' : ' (interarmonică, ' + fmt(I.ha, 2) + ' · f₁).') : 'Componenta este sub Nyquist: se vede corect, la ' + fmt(I.fa, 0) + ' Hz.') +
+    (s2.aaf ? ' Filtrul o atenuează cu ' + fmt(-dB, 1) + ' dB (amplitudine ' + fmt(I.G * 100, 1) + ' %).' : ' Fără filtru: amplitudinea rămâne 100 %.');
+  $('clock').textContent = 'fereastra de vizualizare începe la ' + fmt(off * 1000, 2) + ' ms';
+}
+
+// ---------- Experiment 3 ----------
+function e3Compute() {
+  cr3 = crossings(s3.f, s3.dist, s3.filt, V.phi * Math.PI / 180, 10);
+  res3 = freq10(cr3, s3.method);
+}
+function drawE3() {
+  if (!cr3) e3Compute();
+  const { ctx: g, w, h } = setupCanvas($('cvE3')); g.clearRect(0, 0, w, h);
+  const L0 = 40, L1 = w - 10, top = 14, bot = h - 22, mid = (top + bot) / 2, span = 0.06;
+  const xt = (t) => L0 + t / span * (L1 - L0), yv = (v) => mid - v / 1.25 * (bot - top) / 2;
+  line(g, L0, mid, L1, mid, '#c9d3dd');
+  for (let k = 0; k <= 6; k++) txt(g, String(k * 10), xt(k * 0.01) - 6, bot + 15);
+  txt(g, 't (ms)', L1 - 34, top); txt(g, 'u (u.r.)', 2, 12);
+  g.strokeStyle = '#142d4e'; g.lineWidth = 1.4; g.beginPath();
+  for (let x = L0; x <= L1; x += 0.5) { const t = (x - L0) / (L1 - L0) * span; const y = yv(cr3.val(t)); x === L0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+  g.stroke();
+  const inView = cr3.list.filter(t => t <= span);
+  inView.forEach(t => line(g, xt(t), mid - 16, xt(t), mid + 16, '#a23b00', 3));
+  const tc = Math.min(tPhys, 10), done = tPhys >= 10;
+  const sofar = cr3.list.filter(t => t <= tc).length;
+  $('lcd3t').textContent = 't = ' + fmt(tc, 1) + ' s';
+  $('lcd3m').textContent = s3.method === 'ok' ? 'perioade / durată' : 'perioade / 10 s';
+  $('lcd3n').textContent = Math.max(0, sofar - 1) + ' perioade';
+  $('lcd3f').textContent = done ? fmt(res3.f, 3) : '- - , - - -';
+  const e = res3.f - s3.f;
+  $('lcd3e').textContent = done ? ('Δ ' + (e >= 0 ? '+' : '') + fmt(e, 3) + ' Hz') : 'numără…';
+  $('e3Read').textContent = 'Frecvența reală ' + fmt(s3.f, 3) + ' Hz. În 60 ms: ' + inView.length + ' treceri crescătoare detectate (corect: ' + Math.floor(0.06 * s3.f) + ' sau ' + Math.ceil(0.06 * s3.f) + '). ' +
+    (done ? 'După 10 s: ' + res3.cycles + ' perioade întregi, durata lor ' + fmt(res3.dur, 5) + ' s; rezultat ' + fmt(res3.f, 3) + ' Hz, eroare ' + fmt(e, 3) + ' Hz ' + (Math.abs(e) <= 0.01 ? '(în ±0,01 Hz).' : '(peste ±0,01 Hz).') : 'Apasă Play: frecvențmetrul numără timp de 10 s (timp simulat).');
+  $('clock').textContent = 't = ' + fmt(tc, 2) + ' s din 10 s';
+}
+
+// ---------- animație ----------
+function draw() { if (exp === 'e1') drawE1(); else if (exp === 'e2') drawE2(); else drawE3(); }
+function tick(ts) {
+  if (!running) { lastTs = null; return; }
+  const sp = Number($('slow').value);
+  if (lastTs !== null) {
+    const dt = (ts - lastTs) / 1000;
+    if (exp === 'e1') { winAcc += dt * sp * 4; while (winAcc >= 1) { e1Step(); winAcc -= 1; } }
+    else if (exp === 'e2') tPhys += dt * sp;
+    else { tPhys += dt * sp * 2; if (tPhys >= 10) { tPhys = 10; running = false; } }
+  }
+  lastTs = ts; draw(); if (running) requestAnimationFrame(tick);
+}
+
+// ---------- controale ----------
+function sync() {
+  $('e1f').value = s1.f; $('e1fV').textContent = fmt(s1.f, 2); $('e1fs').value = String(s1.fs); $('e1mode').value = s1.mode; $('e1h').value = s1.h; $('e1hV').textContent = fmt(s1.h, 1);
+  $('e2h').value = s2.h; $('e2hV').textContent = String(s2.h); $('e2fs').value = String(s2.fs); $('e2aaf').checked = s2.aaf;
+  $('e3f').value = s3.f; $('e3fV').textContent = fmt(s3.f, 3); $('e3m').value = s3.method; $('e3dist').checked = s3.dist; $('e3filt').checked = s3.filt;
+}
+function refresh() { sync(); draw(); }
+function setExp(e) {
+  exp = e; running = false; tPhys = 0;
+  document.querySelectorAll('.exps button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.exp === e)));
+  document.querySelectorAll('.expbody').forEach(s => s.classList.toggle('active', s.id === e));
+  refresh();
+}
+function applyN(n) {
+  V = variant(n);
+  s1 = { f: V.f1, fs: V.fs, mode: 'fix', h: 0 }; s2 = { h: V.hA, fs: FS_A, aaf: false }; s3 = { f: V.f3, method: 'ok', dist: false, filt: true };
+  tPhys = 0; running = false; e1Reset(); e3Compute();
+  $('nIn').value = n;
+  $('vCode').textContent = CODE + '-N' + String(n).padStart(2, '0') + '-v' + VERSION;
+  $('vData').textContent = 'f₁ = ' + fmt(V.f1, 2) + ' Hz · fs = ' + fmt(V.fs / 1000, 2) + ' kHz · armonica pentru aliasing hA = ' + V.hA + ' (fs = 3,2 kHz) · f₃ = ' + fmt(V.f3, 3) + ' Hz';
+  status('stVar', 'Varianta N = ' + n + ' aplicată.');
+  refresh(); fillFisa(); saveLocal();
+}
+function fillFisa() {
+  $('fN').textContent = V.N; $('fCode').textContent = $('vCode').textContent;
+  $('fData').innerHTML = '<tr><th>Mărime</th><th class="num">Valoare</th><th>Folosită la</th></tr>' +
+    '<tr><td>Frecvența rețelei f₁</td><td class="num">' + fmt(V.f1, 2) + ' Hz</td><td>Experimentul 1</td></tr>' +
+    '<tr><td>Frecvența de eșantionare fs</td><td class="num">' + fmt(V.fs / 1000, 2) + ' kHz</td><td>Experimentul 1</td></tr>' +
+    '<tr><td>Armonica hA (fs = 3,2 kHz)</td><td class="num">' + V.hA + '</td><td>Experimentul 2</td></tr>' +
+    '<tr><td>Frecvența f₃</td><td class="num">' + fmt(V.f3, 3) + ' Hz</td><td>Experimentul 3</td></tr>';
+  const n1 = notes.filter(n => n.exp === 'E1' && n.f === V.f1 && n.fs === V.fs).slice(-1)[0];
+  const n2 = notes.filter(n => n.exp === 'E2' && n.h === V.hA && n.fs === FS_A).slice(-1)[0];
+  const n3 = notes.filter(n => n.exp === 'E3' && n.f === V.f3).slice(-1)[0];
+  $('mT').textContent = n1 ? fmt(1000 / n1.f, 3) : ''; $('mTw').textContent = n1 ? fmt(10000 / n1.f, 3) : '';
+  $('mPer').textContent = n1 ? fmt(0.2 * n1.f, 3) : ''; $('mNs').textContent = n1 ? fmt(10 * n1.fs / n1.f, 1) : '';
+  $('mFa').textContent = n2 ? fmt(n2.fa, 0) : '';
+  $('mNc').textContent = n3 ? String(n3.cycles) : ''; $('mFb').textContent = n3 ? fmt(n3.cycles / 10, 3) : '';
+  $('fNotes').innerHTML = '<tr><th>Experiment</th><th>Ce s-a notat</th><th>Ora</th></tr>' + (notes.map(n => '<tr><td>' + esc(n.exp) + '</td><td>' + esc(n.text) + '</td><td>' + esc(n.time) + '</td></tr>').join('') || '<tr><td colspan="3" class="note">Nimic notat încă.</td></tr>');
+}
+function addNote(n, st) { n.time = new Date().toLocaleTimeString('ro-RO'); notes.push(n); fillFisa(); saveLocal(); status(st, 'Notat în fișă.'); }
+
+const LSKEY = CODE + '-' + VERSION;
+const CALC = ['cT', 'cTw', 'cPer', 'cNs', 'cFa', 'cNc', 'cFb'];
+function collect() { return { code: CODE, version: VERSION, N: V.N, name: $('fName').value, group: $('fGroup').value, calc: CALC.reduce((o, k) => (o[k] = $(k).value, o), {}), concl: $('fConcl').value, notes }; }
+function saveLocal() { try { localStorage.setItem(LSKEY, JSON.stringify(collect())); } catch (e) { status('stFisa', 'Salvarea automată nu merge în acest browser: folosește Export JSON.', true); } }
+function restore(d) {
+  if (!d || d.code !== CODE || d.version !== VERSION || !validN(d.N).ok || !Array.isArray(d.notes)) throw new Error('fișier străin');
+  applyN(d.N); notes = d.notes.filter(n => n && typeof n.exp === 'string' && typeof n.text === 'string');
+  $('fName').value = String(d.name || ''); $('fGroup').value = String(d.group || ''); $('fConcl').value = String(d.concl || '');
+  if (d.calc) for (const k of CALC) if (k in d.calc) $(k).value = String(d.calc[k]);
+  fillFisa();
+}
+function restoreLocal() { try { const s = localStorage.getItem(LSKEY); if (s) { restore(JSON.parse(s)); return true; } } catch (e) { } return false; }
+function toCSV() { const now = new Date().toISOString(); const rows = [['CODE', 'VERSION', 'N', 'data_ora', 'experiment', 'notat', 'ora']]; notes.forEach(n => rows.push([CODE, VERSION, V.N, now, n.exp, n.text, n.time])); return rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\n'); }
+
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', 'false')); b.setAttribute('aria-selected', 'true');
+  document.querySelectorAll('section.tab').forEach(s => s.classList.remove('active')); $(b.dataset.tab).classList.add('active'); refresh(); fillFisa();
+}));
+document.querySelectorAll('.exps button').forEach(b => b.addEventListener('click', () => setExp(b.dataset.exp)));
+$('btnPlay').addEventListener('click', () => { if (exp === 'e3' && tPhys >= 10) tPhys = 0; if (!running) { running = true; requestAnimationFrame(tick); } });
+$('btnPause').addEventListener('click', () => { running = false; });
+$('btnReset').addEventListener('click', () => { running = false; tPhys = 0; if (exp === 'e1') e1Reset(); draw(); });
+$('slow').addEventListener('input', () => { $('slowVal').textContent = fmt(Number($('slow').value), 1) + '×'; });
+$('e1f').addEventListener('input', () => { s1.f = Number($('e1f').value); e1Reset(); refresh(); });
+$('e1fs').addEventListener('change', () => { s1.fs = Number($('e1fs').value); e1Reset(); refresh(); });
+$('e1mode').addEventListener('change', () => { s1.mode = $('e1mode').value; e1Reset(); refresh(); });
+$('e1h').addEventListener('input', () => { s1.h = Number($('e1h').value); e1Reset(); refresh(); });
+$('e1Var').addEventListener('click', () => { s1.f = V.f1; s1.fs = V.fs; e1Reset(); refresh(); });
+$('e1Nom').addEventListener('click', () => { s1.f = 50; e1Reset(); refresh(); });
+$('e2h').addEventListener('input', () => { s2.h = Number($('e2h').value); refresh(); });
+$('e2fs').addEventListener('change', () => { s2.fs = Number($('e2fs').value); refresh(); });
+$('e2aaf').addEventListener('change', () => { s2.aaf = $('e2aaf').checked; refresh(); });
+$('e2Var').addEventListener('click', () => { s2.h = V.hA; s2.fs = FS_A; refresh(); });
+$('e3f').addEventListener('input', () => { s3.f = Number($('e3f').value); tPhys = 0; running = false; e3Compute(); refresh(); });
+$('e3m').addEventListener('change', () => { s3.method = $('e3m').value; e3Compute(); refresh(); });
+$('e3dist').addEventListener('change', () => { s3.dist = $('e3dist').checked; e3Compute(); refresh(); });
+$('e3filt').addEventListener('change', () => { s3.filt = $('e3filt').checked; e3Compute(); refresh(); });
+$('e3Var').addEventListener('click', () => { s3.f = V.f3; tPhys = 0; e3Compute(); refresh(); });
+$('note1').addEventListener('click', () => {
+  const mx = Math.max(...hist.map(x => Math.abs(x.err)));
+  const mode = { fix: 'fereastră fixă 200 ms', var: 'fereastră variabilă', pll: 'PLL 256·f' }[s1.mode];
+  addNote({ exp: 'E1', f: s1.f, fs: s1.fs, mode: s1.mode, maxErr: mx, text: 'f = ' + fmt(s1.f, 2) + ' Hz, fs = ' + fmt(s1.fs / 1000, 2) + ' kHz, ' + mode + ', armonica 5 = ' + fmt(s1.h, 1) + ' %: ' + hist[hist.length - 1].Nw + ' eșantioane/fereastră, eroare maximă ' + fmt(mx, 3) + ' % pe ' + hist.length + ' ferestre' }, 'st1');
+});
+$('note2').addEventListener('click', () => { const I = e2Info(); addNote({ exp: 'E2', h: s2.h, fs: s2.fs, fa: I.fa, text: 'h = ' + s2.h + ' (' + fmt(I.f, 0) + ' Hz), fs = ' + fmt(s2.fs / 1000, 2) + ' kHz → apare la ' + fmt(I.fa, 0) + ' Hz' + (s2.aaf ? ', filtru: ' + fmt(I.G * 100, 1) + ' % amplitudine' : ', fără filtru') }, 'st2'); });
+$('note3').addEventListener('click', () => { if (tPhys < 10) { status('st3', 'Lasă frecvențmetrul să termine cele 10 s (Play).', true); return; } addNote({ exp: 'E3', f: s3.f, cycles: res3.cycles, fm: res3.f, text: 'f reală ' + fmt(s3.f, 3) + ' Hz, ' + (s3.method === 'ok' ? 'perioade/durată' : 'perioade/10 s') + (s3.dist ? ', cu componentă 2050 Hz' : '') + (s3.filt ? ', cu filtru' : ', fără filtru') + ': ' + res3.cycles + ' perioade, ' + fmt(res3.f, 3) + ' Hz' }, 'st3'); });
+$('btnApply').addEventListener('click', () => { const r = validN($('nIn').value); if (!r.ok) { status('stVar', r.msg, true); return; } notes = []; applyN(r.n); });
+$('btnEx').addEventListener('click', () => { notes = []; applyN(N_EXEMPLU); });
+$('btnBoard').addEventListener('click', (e) => { const on = document.documentElement.classList.toggle('board'); e.target.setAttribute('aria-pressed', on); e.target.textContent = on ? 'Dimensiune normală' : 'Mărește pentru tablă'; draw(); });
+['fName', 'fGroup', 'fConcl', ...CALC].forEach(id => $(id).addEventListener('input', saveLocal));
+$('btnPrint').addEventListener('click', () => window.print());
+$('btnJson').addEventListener('click', () => download('EMEC_L07_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.json', JSON.stringify(collect(), null, 2), 'application/json'));
+$('btnCsv').addEventListener('click', () => download('EMEC_L07_N' + String(V.N).padStart(2, '0') + '_v' + VERSION + '.csv', toCSV(), 'text/csv'));
+$('fileJson').addEventListener('change', (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { restore(JSON.parse(rd.result)); status('stFisa', 'Fișa a fost încărcată.'); } catch (err) { status('stFisa', 'Fișierul nu este o fișă EMEC L07 v' + VERSION + ' și a fost respins.', true); } }; rd.readAsText(f); });
+window.addEventListener('resize', draw);
+
+$('ftVer').textContent = VERSION;
+$('slowVal').textContent = fmt(Number($('slow').value), 1) + '×';
+if (!restoreLocal()) applyN(N_EXEMPLU);
+setExp('e1');
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { $('slow').value = 0.2; $('slowVal').textContent = '0,2×'; }
+</script>
+</body>
+</html>
