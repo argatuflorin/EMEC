@@ -12,5 +12,6 @@ https://argatuflorin.github.io/EMEC/
 | L04 | Trifazat și armonici | `L04/EMEC_L04_Trifazat_Armonici_v1.0.html` |
 | L05 | Valoarea efectivă și variațiile tensiunii | `L05/EMEC_L05_RMS_Variatii_Tensiune_v1.0.html` |
 | L06 | Frecvența și nesimetria | `L06/EMEC_L06_Frecventa_Nesimetrie_v1.1.html` |
+| L07 | Analizorul transparent – achiziția sincronizată | `L07/EMEC_L07_Analizor_Transparent_v1.0.html` |
 
 Repository-ul este oglinda folderului „06 – GITHUB & SIMULATOARE” din Google Drive; denumirile urmează STANDARD DENUMIRI ACADEMIC (DISC_L0x_Tema_vX.Y). Testele și materialele profesorului nu se publică aici. `EMEC_Trifazat_Armonici.html` redirecționează către L04, pentru linkurile vechi.
