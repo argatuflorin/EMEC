@@ -15,3 +15,12 @@ https://argatuflorin.github.io/EMEC/
 | L07 | Analizorul transparent – achiziția sincronizată | `L07/EMEC_L07_Analizor_Transparent_v1.0.html` |
 
 Repository-ul este oglinda folderului „06 – GITHUB & SIMULATOARE” din Google Drive; denumirile urmează STANDARD DENUMIRI ACADEMIC (DISC_L0x_Tema_vX.Y). Testele și materialele profesorului nu se publică aici. `EMEC_Trifazat_Armonici.html` redirecționează către L04, pentru linkurile vechi.
+
+<!-- licenta-citare -->
+## Licență și citare
+
+© 2026 Florin-Ciprian Argatu ([ORCID 0000-0003-0606-6273](https://orcid.org/0000-0003-0606-6273)), DMAECS – Universitatea Națională de Știință și Tehnologie POLITEHNICA București, Facultatea de Inginerie Electrică.
+
+Materialul este publicat sub licența [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/): poate fi distribuit cu citarea autorilor, doar în scop necomercial și fără versiuni modificate. Detalii în [`LICENSE`](LICENSE).
+
+**Citare:** folosiți butonul *Cite this repository* (dreapta sus, generat din [`CITATION.cff`](CITATION.cff)). DOI-ul permanent (Zenodo) se adaugă la primul release.
