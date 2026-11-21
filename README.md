@@ -1,5 +1,7 @@
 # EMEC – Echipamente și metode de evaluare a calității energiei electrice
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24411931.svg)](https://doi.org/10.5281/zenodo.24411931)
+
 Master SIIM, anul 2 · UNSTPB, Facultatea de Inginerie Electrică · Conf.dr.ing. Florin Ciprian Argatu
 
 Laboratoare virtuale (aplicații HTML, rulează în browser, fără instalare):
@@ -23,4 +25,4 @@ Repository-ul este oglinda folderului „06 – GITHUB & SIMULATOARE” din Goog
 
 Materialul este publicat sub licența [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/): poate fi distribuit cu citarea autorilor, doar în scop necomercial și fără versiuni modificate. Detalii în [`LICENSE`](LICENSE).
 
-**Citare:** folosiți butonul *Cite this repository* (dreapta sus, generat din [`CITATION.cff`](CITATION.cff)). DOI-ul permanent (Zenodo) se adaugă la primul release.
+**Citare:** folosiți butonul *Cite this repository* (dreapta sus, generat din [`CITATION.cff`](CITATION.cff)). DOI permanent (Zenodo, toate versiunile): [10.5281/zenodo.24411931](https://doi.org/10.5281/zenodo.24411931).
